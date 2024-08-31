@@ -38,9 +38,6 @@ class Gateway( private val configuration: Configuration, private val playerManag
 	// The underlying WebSocket connection
 	private var webSocket: WebSocket? = null
 
-	// Future that completes when the underlying WebSocket receives a close event
-	private var connectionClosureConfirmation: CompletableDeferred<ClosureConfirmation>? = null
-
 	// Job & completable for heartbeating in the background
 	private var heartbeatJob: Job? = null
 	private var heartbeatAcknowledgementConfirmation: CompletableDeferred<Unit>? = null
@@ -55,10 +52,14 @@ class Gateway( private val configuration: Configuration, private val playerManag
 
 	// Number of times we've reconnected
 	private var reconnectCount = 0
+	private var alreadyReconnecting = false
 
 	// The bot ID & server roles, set during ready process
 	private var myIdentifier: String? = null
 	private var serverRoles: Map<String, Guild.Role>? = null
+
+	// Server closure
+	private var serverClosed = false;
 
 	/**
 	 * Opens a WebSocket connection to the given URL, closing any existing connections beforehand.
@@ -71,13 +72,12 @@ class Gateway( private val configuration: Configuration, private val playerManag
 	suspend fun open( baseUrl: String, version: Int = configuration.discord.api.version ) {
 		val url = URI.create( "$baseUrl?v=$version&encoding=json" )
 
-		if ( webSocket != null ) {
-			DiscordRelay.LOGGER.debug( "Closing existing WebSocket connection..." )
+		if ( webSocket != null && !webSocket!!.isOutputClosed ) {
+			DiscordRelay.LOGGER.info( "Closing existing WebSocket connection..." )
 			close( WebSocketCloseCode.GoingAway, "Closing existing connection." )
 		}
 
-		DiscordRelay.LOGGER.debug( "Opening new WebSocket connection to '$url'..." )
-		connectionClosureConfirmation = CompletableDeferred()
+		DiscordRelay.LOGGER.info( "Opening new WebSocket connection to '$url'..." )
 		webSocket = HTTP.startWebSocketConnection( url, configuration.http.timeoutSeconds, Listener() )
 	}
 
@@ -86,27 +86,15 @@ class Gateway( private val configuration: Configuration, private val playerManag
 	 * @param code The WebSocket close code. https://www.rfc-editor.org/rfc/rfc6455.html#section-7.4.1
 	 * @param reason The human-readable reason for closing the connection.
 	 */
-	suspend fun close( code: Int = WebSocketCloseCode.Normal, reason: String = "Unknown.", isServerStopping: Boolean = false ) {
+	suspend fun close( code: Int = WebSocketCloseCode.Normal, reason: String = "Unknown.", serverClosing: Boolean = false) {
 		try {
-			DiscordRelay.LOGGER.debug( "Closing WebSocket connection with code $code & reason '$reason' (Server Stopping: $isServerStopping)..." )
+			DiscordRelay.LOGGER.info( "Closing WebSocket connection with code $code & reason '$reason'" )
+			if ( serverClosing ) serverClosed = true;
 			webSocket?.sendClose( code, reason )?.await()
 		} catch ( exception: IOException ) {
 			DiscordRelay.LOGGER.error( "Cannot close WebSocket connection! (${ exception.message })" )
+			webSocket?.abort()
 		}
-
-		DiscordRelay.LOGGER.debug( "Confirming closure..." )
-		connectionClosureConfirmation?.complete( ClosureConfirmation( code, reason, isServerStopping ) )
-	}
-
-	/**
-	 * Waits for a confirmation of WebSocket closure.
-	 * @return The WebSocket close code, if a connection was active.
-	 */
-	suspend fun awaitClosure(): ClosureConfirmation? {
-		DiscordRelay.LOGGER.debug( "Waiting for closure confirmation..." )
-		val confirmation = connectionClosureConfirmation?.await()
-		DiscordRelay.LOGGER.debug( "Closure confirmed with code ${ confirmation?.closeCode }." )
-		return confirmation
 	}
 
 	// Starts heartbeating in the background
@@ -118,23 +106,31 @@ class Gateway( private val configuration: Configuration, private val playerManag
 
 		DiscordRelay.LOGGER.debug( "Starting new background heartbeating job..." )
 		heartbeatJob = coroutineScope.launch {
+			DiscordRelay.LOGGER.debug( "HEARTBEAT 1" )
 			heartbeatLoop( webSocket, interval )
+			DiscordRelay.LOGGER.debug( "HEARTBEAT 2" )
 		}
 	}
 
 	// Sends heartbeats on an interval - https://discord.com/developers/docs/topics/gateway#sending-heartbeats
 	private suspend fun heartbeatLoop( webSocket: WebSocket, regularInterval: Long ) {
+		DiscordRelay.LOGGER.debug( "HEARTBEAT 3" )
 		val initialInterval = ( regularInterval * Random.nextFloat() ).toLong()
 		DiscordRelay.LOGGER.debug( "Waiting $initialInterval milliseconds for the initial heartbeat..." )
+		DiscordRelay.LOGGER.debug( "HEARTBEAT 4" )
 		delay( initialInterval )
+		DiscordRelay.LOGGER.debug( "HEARTBEAT 5" )
 
 		sendHeartbeat( webSocket, this.sequenceNumber )
+		DiscordRelay.LOGGER.debug( "HEARTBEAT 6" )
 
 		while ( !webSocket.isOutputClosed ) {
 			DiscordRelay.LOGGER.debug( "Waiting $regularInterval milliseconds for the next heartbeat..." )
 			delay( regularInterval )
 
+			DiscordRelay.LOGGER.debug( "HEARTBEAT 7" )
 			sendHeartbeat( webSocket, this.sequenceNumber )
+			DiscordRelay.LOGGER.debug( "HEARTBEAT 8" )
 		}
 	}
 
@@ -156,11 +152,13 @@ class Gateway( private val configuration: Configuration, private val playerManag
 
 			DiscordRelay.LOGGER.debug( "Closing WebSocket connection..." )
 			close( WebSocketCloseCode.GoingAway, "No heartbeat acknowledgement." )
+			tryReconnect( true )
 		}
 	}
 
 	// Sends an identify event to Discord - https://discord.com/developers/docs/topics/gateway#identifying
 	private suspend fun sendIdentify( webSocket: WebSocket ) {
+		DiscordRelay.LOGGER.debug( "IDENTIFY" )
 		val libraryName = "viral32111's discord relay/${ Version.discordRelay() } (https://github.com/viral32111/discord-relay)"
 
 		// Just to be sure
@@ -184,6 +182,7 @@ class Gateway( private val configuration: Configuration, private val playerManag
 
 	// Sends a resume event to Discord - https://discord.com/developers/docs/topics/gateway#resuming
 	private suspend fun sendResume( webSocket: WebSocket, sessionIdentifier: String, sequenceNumber: Int ) {
+		DiscordRelay.LOGGER.debug( "RESUME" )
 		DiscordRelay.LOGGER.debug( "Sending resume for session '$sessionIdentifier'..." )
 		sendEvent( webSocket, Gateway.Event.OperationCode.Resume, JSON.encodeToJsonElement( Gateway.Event.Data.Resume(
 			applicationToken = configuration.discord.application.token,
@@ -196,7 +195,8 @@ class Gateway( private val configuration: Configuration, private val playerManag
 	private suspend fun sendEvent( webSocket: WebSocket, operationCode: Int, data: JsonElement? ) {
 		if ( webSocket.isOutputClosed ) {
 			DiscordRelay.LOGGER.warn( "WebSocket output closed when attempting to send data?!" )
-			close( WebSocketCloseCode.GoingAway, "WebSocket output closed." )
+			close( WebSocketCloseCode.GoingAway, "WebSocket output closed.")
+			tryReconnect( true )
 			return
 		}
 
@@ -214,14 +214,21 @@ class Gateway( private val configuration: Configuration, private val playerManag
 		val sessionIdentifier = this.sessionIdentifier
 		val sequenceNumber = this.sequenceNumber
 
+		DiscordRelay.LOGGER.debug( "HELLO 1" )
 		startHeartbeating( webSocket, data.heartbeatInterval )
+		DiscordRelay.LOGGER.debug( "HELLO 2" )
 
 		coroutineScope.launch {
+			DiscordRelay.LOGGER.debug( "HELLO 3" )
 			if ( shouldResume && sessionIdentifier != null && sequenceNumber != null ) {
+				DiscordRelay.LOGGER.debug( "HELLO 4/1" )
 				sendResume( webSocket, sessionIdentifier, sequenceNumber )
+				DiscordRelay.LOGGER.debug( "HELLO 5/1" )
 				shouldResume = false
 			} else {
+				DiscordRelay.LOGGER.debug( "HELLO 4/2" )
 				sendIdentify( webSocket )
+				DiscordRelay.LOGGER.debug( "HELLO 5/2" )
 			}
 		}
 	}
@@ -265,7 +272,7 @@ class Gateway( private val configuration: Configuration, private val playerManag
 
 	// https://discord.com/developers/docs/topics/gateway-events#ready
 	private fun handleReadyEvent( data: Gateway.Event.Data.Ready ) {
-		DiscordRelay.LOGGER.info( "Ready as '${ data.user.name }#${ data.user.discriminator }' / '@${ data.user.name }' (${ data.user.identifier })." )
+		DiscordRelay.LOGGER.info( "Ready as '${ data.user.username }#${ data.user.discriminator }' (${ data.user.identifier })." )
 		myIdentifier = data.user.identifier
 
 		sessionIdentifier = data.sessionIdentifier
@@ -275,29 +282,29 @@ class Gateway( private val configuration: Configuration, private val playerManag
 
 	// https://discord.com/developers/docs/topics/gateway-events#message-create
 	private fun handleMessageCreate( message: Gateway.Event.Data.MessageCreate ) {
-		DiscordRelay.LOGGER.debug( "Received message '${ message.content }' (${ message.identifier }) in channel ${ message.channelIdentifier } from '@${ message.author.name }' (${ message.author.identifier })." )
+		DiscordRelay.LOGGER.debug( "Received message '${ message.content }' (${ message.identifier }) in channel ${ message.channelIdentifier } from '@${ message.author.username }' (${ message.author.identifier })." )
 
-		if ( message.channelIdentifier != configuration.discord.channels.relay.identifier ) {
-			DiscordRelay.LOGGER.debug( "Ignoring non-relay channel message (${ message.identifier }) from '@${ message.author.name }' (${ message.author.identifier })." )
+		if ( message.channelIdentifier != configuration.discord.relay.channelId ) {
+			DiscordRelay.LOGGER.debug( "Ignoring non-relay channel message (${ message.identifier }) from '@${ message.author.username }' (${ message.author.identifier })." )
 			return
 		}
 
 		if ( message.content.isBlank() ) {
-			DiscordRelay.LOGGER.debug( "Ignoring empty message (${ message.identifier }) from '@${ message.author.name }' (${ message.author.identifier })." )
+			DiscordRelay.LOGGER.debug( "Ignoring empty message (${ message.identifier }) from '@${ message.author.username }' (${ message.author.identifier })." )
 			return
 		}
 
 		if ( message.author.isBot == true || message.author.isSystem == true ) {
-			DiscordRelay.LOGGER.debug( "Ignoring bot/system message '${ message.content }' (${ message.identifier }) from '@${ message.author.name }' (${ message.author.identifier })." )
+			DiscordRelay.LOGGER.debug( "Ignoring bot/system message '${ message.content }' (${ message.identifier }) from '@${ message.author.username }' (${ message.author.identifier })." )
 			return
 		}
 
 		if ( message.author.identifier == myIdentifier ) {
-			DiscordRelay.LOGGER.debug( "Ignoring my message '${ message.content }' (${ message.identifier }) from '@${ message.author.name }' (${ message.author.identifier })." )
+			DiscordRelay.LOGGER.debug( "Ignoring my message '${ message.content }' (${ message.identifier }) from '@${ message.author.username }' (${ message.author.identifier })." )
 			return
 		}
 
-		DiscordRelay.LOGGER.info( "Relaying Discord message '${ message.content }' (${ message.identifier}) from '@${ message.author.name }' (${ message.author.identifier })..." )
+		DiscordRelay.LOGGER.debug( "Relaying Discord message '${ message.content }' (${ message.identifier}) from '@${ message.author.username }' (${ message.author.identifier })..." )
 
 		val memberRoleColor = getMemberRoleColor( message.member )
 		val playerStyle = getStyleOrDefault( memberRoleColor )
@@ -305,7 +312,7 @@ class Gateway( private val configuration: Configuration, private val playerManag
 
 		val chatMessage: Text = Text.literal( "" )
 			.append( Text.literal( "(Discord) " ).setStyle( Style.EMPTY.withColor( TextColor.fromFormatting( Formatting.BLUE ) ) )
-			.append( Text.literal( message.member?.displayName ?: message.author.name ).setStyle( playerStyle ) ) )
+			.append( Text.literal( message.member?.displayName ?: message.author.displayName ?: message.author.username ).setStyle( playerStyle ) ) )
 			.append( Text.literal( ": " ) )
 			.append( Text.literal( message.content ) )
 
@@ -314,7 +321,7 @@ class Gateway( private val configuration: Configuration, private val playerManag
 
 	// https://discord.com/developers/docs/topics/gateway-events#guild-create
 	private fun handleGuildCreate( guild: Gateway.Event.Data.GuildCreate ) {
-		if ( guild.identifier != configuration.discord.server.identifier ) {
+		if ( guild.identifier != configuration.discord.relay.serverId ) {
 			DiscordRelay.LOGGER.debug( "Ignoring guild create event for guild '${ guild.name }' (${ guild.identifier })." )
 			return
 		}
@@ -369,7 +376,16 @@ class Gateway( private val configuration: Configuration, private val playerManag
 		}
 	}
 
-	private suspend fun tryReconnect( shouldResume: Boolean ) {
+	private suspend fun tryReconnect( shouldResume: Boolean, force: Boolean = false ) {
+		if ( serverClosed ) {
+			DiscordRelay.LOGGER.debug( "Server closed, not reconnecting..." )
+			return
+		}
+		if ( alreadyReconnecting && !force ) {
+			DiscordRelay.LOGGER.debug( "Already reconnecting, skipping..." )
+			return
+		}
+		alreadyReconnecting = true
 		val duration = ( 2.0.pow( reconnectCount ) * 1000 ).toLong()
 		DiscordRelay.LOGGER.debug( "Connection attempt $reconnectCount, waiting $duration milliseconds before reconnecting..." )
 		delay( duration )
@@ -378,10 +394,18 @@ class Gateway( private val configuration: Configuration, private val playerManag
 		val baseUrl = if ( shouldResume && resumeBaseUrl != null ) resumeBaseUrl else API.getGateway().url
 		DiscordRelay.LOGGER.debug( "Trying reconnect to '$baseUrl' (Resume: $shouldResume)..." )
 		this.shouldResume = shouldResume
-		open( baseUrl )
-
-		reconnectCount++
-		DiscordRelay.LOGGER.debug( "Incremented reconnection count to $reconnectCount." )
+		try {
+			open(baseUrl)
+		} catch (ex: Exception) {
+			DiscordRelay.LOGGER.error( "Failed to reconnect! ($ex)" )
+			cleanupAfterError()
+			reconnectCount++
+			DiscordRelay.LOGGER.debug( "Incremented reconnection count to $reconnectCount." )
+			coroutineScope.launch {
+				tryReconnect(shouldResume = false, force = true)
+			}
+			return
+		}
 	}
 
 	private fun cleanupAfterError() {
@@ -392,9 +416,6 @@ class Gateway( private val configuration: Configuration, private val playerManag
 		this.sessionIdentifier = null
 		this.resumeBaseUrl = null
 		this.shouldResume = false
-
-		this.connectionClosureConfirmation?.cancel()
-		this.connectionClosureConfirmation = null
 
 		this.heartbeatAcknowledgementConfirmation?.cancel()
 		this.heartbeatAcknowledgementConfirmation = null
@@ -410,6 +431,7 @@ class Gateway( private val configuration: Configuration, private val playerManag
 
 		override fun onOpen( webSocket: WebSocket ) {
 			DiscordRelay.LOGGER.debug( "WebSocket connection opened." )
+			alreadyReconnecting = false
 			webSocket.request( 1 )
 		}
 
@@ -419,21 +441,17 @@ class Gateway( private val configuration: Configuration, private val playerManag
 			DiscordRelay.LOGGER.debug( "Cancelling background heartbeating job..." )
 			heartbeatJob?.cancel()
 
-			DiscordRelay.LOGGER.debug( "Cancelling gateway coroutines..." )
-			coroutineScope.cancel()
+			// DiscordRelay.LOGGER.debug( "Cancelling gateway coroutines..." )
+			// coroutineScope.cancel()
 
 			// Unknown to Not Authenticated, or Already Authenticated to Session Timed Out - https://discord.com/developers/docs/topics/opcodes-and-status-codes#gateway-gateway-close-event-codes
 			val canResumeFromCloseCode = code in 4000 .. 4003 || code in 4005 .. 4009
 
-			// TODO: This technically doesn't stop reconnecting when this evaluates to false, as the gateway open/awaitClosure call is wrapped in a while loop in DiscordRelay.kt that forever reconnects anyway
-			if ( code == WebSocketCloseCode.GoingAway || canResumeFromCloseCode ) {
-				DiscordRelay.LOGGER.debug( "Reconnecting due to non-1000 close code..." )
+			if ( !serverClosed ) {
+				DiscordRelay.LOGGER.debug( "Reconnecting due to closure..." )
 				coroutineScope.launch {
 					tryReconnect( canResumeFromCloseCode )
 				}
-			} else {
-				DiscordRelay.LOGGER.debug( "Confirming closure..." )
-				connectionClosureConfirmation?.complete( ClosureConfirmation( code, reason ) )
 			}
 
 			return CompletableFuture.completedFuture( null )
@@ -466,10 +484,4 @@ class Gateway( private val configuration: Configuration, private val playerManag
 			}
 		}
 	}
-
-	data class ClosureConfirmation(
-		val closeCode: Int,
-		val closeReason: String? = null,
-		val isServerStopping: Boolean = false
-	)
 }

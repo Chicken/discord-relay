@@ -11,15 +11,8 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.loader.api.FabricLoader
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.net.ConnectException
-import java.net.http.HttpTimeoutException
-import java.nio.channels.UnresolvedAddressException
 import java.nio.file.StandardOpenOption
 import kotlin.io.path.*
-
-// TODO: Player kick/ban/pardon in #log embed
-// TODO: Banned player attempted join in #log embed
-// TODO: Base mod for shared code (HTTP, configuration, version & time helpers, extensions methods, etc.)
 
 @Suppress( "UNUSED" )
 class DiscordRelay: DedicatedServerModInitializer {
@@ -30,7 +23,6 @@ class DiscordRelay: DedicatedServerModInitializer {
 		const val MOD_ID = "discordrelay"
 		val LOGGER: Logger = LoggerFactory.getLogger( "com.viral32111.$MOD_ID" )
 
-		const val CONFIGURATION_DIRECTORY_NAME = "viral32111"
 		const val CONFIGURATION_FILE_NAME = "$MOD_ID.json"
 	}
 
@@ -41,9 +33,12 @@ class DiscordRelay: DedicatedServerModInitializer {
 
 		HTTP.initialize( configuration )
 		API.initialize( configuration )
-		ProxyCheck.initialize( configuration )
 
-		if ( configuration.discord.application.token.isNotBlank() ) {
+		if (
+			configuration.discord.application.token.isNotBlank()
+			&& configuration.discord.relay.webhook.token.isNotBlank()
+			&& configuration.discord.relay.webhook.identifier.isNotBlank()
+			) {
 			registerCallbackListeners( coroutineScope, configuration )
 
 			ServerLifecycleEvents.SERVER_STARTED.register { server ->
@@ -52,31 +47,12 @@ class DiscordRelay: DedicatedServerModInitializer {
 				coroutineScope.launch {
 					val gatewayUrl = API.getGateway().url
 					LOGGER.debug( "Discord Gateway URL: '$gatewayUrl'" )
-
-					do {
-						var confirmation: Gateway.ClosureConfirmation? = null
-
-						try {
-							LOGGER.info( "Opening Discord Gateway connection..." )
-							gateway.open( gatewayUrl )
-							confirmation = gateway.awaitClosure()
-							LOGGER.info( "Discord Gateway connection closed." )
-						} catch ( exception: HttpTimeoutException ) {
-							LOGGER.error( "Timed out sending HTTP request! ($exception)" )
-						} catch ( exception: ConnectException ) {
-							LOGGER.error( "Discord Gateway failed to connect! ($exception)" )
-						} catch ( exception: UnresolvedAddressException ) {
-							LOGGER.error( "Unable to resolve Discord Gateway! ($exception)" )
-						}
-
-						LOGGER.debug( "Waiting 30 seconds before reconnecting..." )
-						delay( 30000 ) // Wait 30 seconds
-					} while ( confirmation?.isServerStopping != true )
+					gateway.open( gatewayUrl )
 				}
 
 				ServerLifecycleEvents.SERVER_STOPPING.register {
 					coroutineScope.launch {
-						LOGGER.info( "Closing Discord Gateway connection..." )
+						LOGGER.debug( "Closing Discord Gateway connection..." )
 						gateway.close( WebSocketCloseCode.Normal, "Server stopping.", true )
 					}
 				}
@@ -90,12 +66,11 @@ class DiscordRelay: DedicatedServerModInitializer {
 
 	private fun loadConfigurationFile(): Configuration {
 		val serverConfigurationDirectory = FabricLoader.getInstance().configDir
-		val configurationDirectory = serverConfigurationDirectory.resolve( CONFIGURATION_DIRECTORY_NAME )
-		val configurationFile = configurationDirectory.resolve( CONFIGURATION_FILE_NAME )
+		val configurationFile = serverConfigurationDirectory.resolve( CONFIGURATION_FILE_NAME )
 
-		if ( configurationDirectory.notExists() ) {
-			configurationDirectory.createDirectory()
-			LOGGER.info( "Created directory '$configurationDirectory' for configuration files." )
+		if ( serverConfigurationDirectory.notExists() ) {
+			serverConfigurationDirectory.createDirectory()
+			LOGGER.debug("Created directory '{}' for configuration files.", serverConfigurationDirectory)
 		}
 
 		if ( configurationFile.notExists() ) {
@@ -106,17 +81,12 @@ class DiscordRelay: DedicatedServerModInitializer {
 				StandardOpenOption.WRITE
 			) )
 
-			LOGGER.info( "Created configuration file '$configurationFile'." )
-		}
-
-		// Warn about the old configuration file
-		if ( serverConfigurationDirectory.resolve( "DiscordRelay.json" ).exists() ) {
-			LOGGER.warn( "The old configuration file exists! Values should be moved to '$configurationFile'." )
+			LOGGER.debug("Created configuration file '{}'.", configurationFile)
 		}
 
 		val configAsJSON = configurationFile.readText()
 		val config = PrettyJSON.decodeFromString<Configuration>( configAsJSON )
-		LOGGER.info( "Loaded configuration from file '$configurationFile'" )
+		LOGGER.debug("Loaded configuration from file '{}'", configurationFile)
 
 		return config
 	}

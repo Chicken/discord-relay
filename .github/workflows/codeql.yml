@@ -2,21 +2,20 @@ name: CodeQL
 
 on:
   push:
-    paths:
-      - '**'
     branches:
-      - '**'
-  schedule:
-    - cron: '0 0 * * 0'
+      - "*"
+    tags:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
 
 jobs:
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest
     permissions:
-      actions: read
       contents: read
-      packages: read
       security-events: write
     steps:
       - name: Clone repository
@@ -25,11 +24,8 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          java-version: 17
+          java-version: 21
           distribution: temurin
-
-      - name: Set Gradle permissions
-        run: chmod +x gradlew
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
@@ -37,14 +33,8 @@ jobs:
           languages: java
           tools: latest
 
-      - name: Build project
-        uses: gradle/gradle-build-action@v3
-        env:
-          GHPKG_USER: ${{ github.repository_owner }}
-          GHPKG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          arguments: build
-          cache-disabled: true
+      - name: Build with Gradle
+        run: ./gradlew clean build --no-daemon
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3

@@ -8,10 +8,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class User(
 	@Required @SerialName( "id" ) val identifier: String,
-	@Required @SerialName( "username" ) val name: String,
-	@Required val discriminator: String, // TODO: This is being phased out
+	@Required @SerialName( "username" ) val username: String,
+	@Required val discriminator: String, // only relevant for bots
 	@SerialName( "global_name" ) val displayName: String? = null,
-	@SerialName( "avatar" ) val avatarHash: String? = null,
 	@SerialName( "bot" ) val isBot: Boolean? = null,
 	@SerialName( "system" ) val isSystem: Boolean? = null
 )

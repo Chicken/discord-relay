@@ -32,10 +32,6 @@ object HTTP {
 		defaultHttpRequestHeaders[ "User-Agent" ] = arrayOf(
 			configuration.http.userAgentPrefix,
 			"Discord Relay/${ Version.discordRelay() }",
-			"Events/${ Version.events() }",
-			"Fabric Language Kotlin/${ Version.fabricLanguageKotlin( true ) }",
-			"Fabric API/${ Version.fabricAPI( true ) }",
-			"Fabric Loader/${ Version.fabricLoader() }",
 			"Minecraft/${ Version.minecraft() }",
 			"Java/${ Version.java() }"
 		).filter { it.isNotBlank() }.joinToString( " " )
@@ -47,14 +43,13 @@ object HTTP {
 		}
 	}
 
-	suspend fun request( method: String, url: String, headers: Map<String, String>? = null, body: String? = null, formData: FormData? = null, parameters: Map<String, String>? = null ): HttpResponse<String> {
+	suspend fun request( method: String, url: String, headers: Map<String, String>? = null, body: String? = null, parameters: Map<String, String>? = null ): HttpResponse<String> {
 		if ( !::httpClient.isInitialized ) throw IllegalStateException( "HTTP client not initialized" )
 		if ( body != null && headers?.containsKey( "Content-Type" ) == false ) throw IllegalArgumentException( "HTTP content type header required for body" )
 
 		val queryString = if ( !parameters.isNullOrEmpty() ) "?" + parameters.map { "${ it.key }=${ it.value }" }.joinToString( "&" ) else ""
 		val uri = URI.create( url + queryString )
-		val bodyPublisher = if ( formData != null ) HttpRequest.BodyPublishers.ofByteArray( formData.toByteArray() )
-			else if ( !body.isNullOrBlank() ) HttpRequest.BodyPublishers.ofString( body )
+		val bodyPublisher = if ( !body.isNullOrBlank() ) HttpRequest.BodyPublishers.ofString( body )
 			else HttpRequest.BodyPublishers.noBody()
 
 		val httpRequestBuilder = HttpRequest.newBuilder()
@@ -85,7 +80,7 @@ object HTTP {
 
 		DiscordRelay.LOGGER.debug( "Retrying HTTP request after 30 seconds..." )
 		delay( 30000 )
-		return request( method, url, headers, body, formData, parameters )
+		return request( method, url, headers, body, parameters )
 	}
 
 	suspend fun startWebSocketConnection( url: URI, timeoutSeconds: Long, listener: WebSocket.Listener ): WebSocket {
@@ -100,7 +95,6 @@ object HTTP {
 	object Method {
 		const val Get = "GET"
 		const val Post = "POST"
-		const val Patch = "PATCH"
 	}
 
 	class HttpException(

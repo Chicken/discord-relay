@@ -3,7 +3,7 @@
 <!--
 Place this file in the root of your Minecraft server and
  specify the '-Dlog4j.configurationFile=log4j2.xml' JVM argument
- while starting the server to see debug messages for all my mods.
+ while starting the server to see debug messages.
 -->
 
 <Configuration status="WARN" packages="com.viral32111">

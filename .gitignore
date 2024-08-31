@@ -21,6 +21,7 @@ bin/
 run/
 *.class
 *.log
+.kotlin
 
 # Gradle
 .gradle/

@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
 	id( "fabric-loom" )
 	kotlin( "jvm" ) version( System.getProperty( "kotlin_version" ) )
@@ -12,11 +14,7 @@ group = project.extra[ "maven_group" ] as String
 
 repositories {
 	maven {
-		url = uri( "https://maven.pkg.github.com/viral32111/events" )
-		credentials {
-			username = project.findProperty( "ghpkg.user" ) as String? ?: System.getenv( "GHPKG_USER" )
-			password = project.findProperty( "ghpkg.token" ) as String? ?: System.getenv( "GHPKG_TOKEN" )
-		}
+		url = uri( "https://api.modrinth.com/maven" )
 	}
 }
 
@@ -40,9 +38,8 @@ dependencies {
 	// Kotlin JSON serialization
 	implementation( "org.jetbrains.kotlinx", "kotlinx-serialization-json", project.extra[ "kotlinx_serialization_json_version" ] as String )
 
-	// My callbacks - https://github.com/viral32111/events
-	modImplementation( "com.viral32111", "events", project.extra[ "events_version" ] as String )
-
+	// Vanish
+	modImplementation( "maven.modrinth", "vanish", project.extra[ "vanish_version" ] as String )
 }
 
 tasks {
@@ -55,10 +52,11 @@ tasks {
 		options.release.set( javaVersion.toString().toInt() )
 	}
 
-	withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-		kotlinOptions {
-			jvmTarget = javaVersion.toString()
-		}
+	withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile> {
+		 compilerOptions {
+		 	jvmTarget.set(JvmTarget.fromTarget(project.extra[ "java_version" ] as String))
+		 }
+
 	}
 
 	jar {
@@ -77,8 +75,7 @@ tasks {
 				"minecraft" to project.extra[ "minecraft_version" ] as String,
 				"fabricloader" to project.extra[ "loader_version" ] as String,
 				"fabric_api" to project.extra[ "fabric_version" ] as String,
-				"fabric_language_kotlin" to project.extra[ "fabric_language_kotlin_version" ] as String,
-				"events" to project.extra[ "events_version" ] as String
+				"fabric_language_kotlin" to project.extra[ "fabric_language_kotlin_version" ] as String
 			) )
 		}
 

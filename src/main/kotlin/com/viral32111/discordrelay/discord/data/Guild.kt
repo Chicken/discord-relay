@@ -23,16 +23,8 @@ data class Guild(
 	@Serializable
 	data class Role(
 		@Required @SerialName( "id" ) val identifier: String,
-		@Required val name: String,
 		@Required val color: Int,
 		@Required val position: Int
-	)
-
-	// https://discord.com/developers/docs/resources/channel#channel-object
-	@Serializable
-	data class Channel(
-		@Required @SerialName( "id" ) val identifier: String,
-		val name: String? = null
 	)
 
 }
