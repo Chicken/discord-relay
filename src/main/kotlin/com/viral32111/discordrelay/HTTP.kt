@@ -95,6 +95,7 @@ object HTTP {
 	object Method {
 		const val Get = "GET"
 		const val Post = "POST"
+		const val Put = "PUT"
 	}
 
 	class HttpException(

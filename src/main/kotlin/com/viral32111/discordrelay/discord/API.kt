@@ -1,5 +1,6 @@
 package com.viral32111.discordrelay.discord
 
+import com.mojang.datafixers.util.Either
 import com.viral32111.discordrelay.DiscordRelay
 import com.viral32111.discordrelay.HTTP
 import com.viral32111.discordrelay.JSON
@@ -8,10 +9,7 @@ import com.viral32111.discordrelay.discord.data.*
 import com.viral32111.discordrelay.discord.data.Gateway
 import kotlinx.coroutines.time.delay
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.*
 import java.lang.RuntimeException
 import java.time.Duration
 import kotlin.jvm.optionals.getOrElse
@@ -31,7 +29,7 @@ object API {
 		defaultHttpRequestHeaders[ "Authorization" ] = "Bot ${ configuration.discord.application.token }"
 	}
 
-	private suspend fun request( method: String, endpoint: String, payload: JsonObject? = null, retryDepth: Int = 0 ): JsonElement {
+	private suspend fun request(method: String, endpoint: String, payload: JsonElement? = null, retryDepth: Int = 0 ): JsonElement {
 		if ( retryDepth > 0 ) DiscordRelay.LOGGER.debug( "Attempt #$retryDepth of retrying $method '$endpoint'..." )
 
 		val httpRequestHeaders = defaultHttpRequestHeaders.toMutableMap() // Creates a copy
@@ -96,4 +94,20 @@ object API {
 		JSON.decodeFromJsonElement( sendWebhookEmbed( identifier, token, true, threadId, EmbedBuilder().apply( builderBlock ).build() ) )
 	suspend fun sendWebhookEmbedWithoutWaiting( identifier: String, token: String, threadId: String?, builderBlock: EmbedBuilder.() -> Unit )
 		{ sendWebhookEmbed( identifier, token, false, threadId, EmbedBuilder().apply( builderBlock ).build() ) }
+
+	// https://discord.com/developers/docs/interactions/application-commands#bulk-overwrite-global-application-commands
+	suspend fun registerSlashCommands( identifier: String, payloadString: String): JsonElement {
+
+		val payload = Json.parseToJsonElement(payloadString.trimIndent()) as JsonArray
+
+		for (jsonElement in payload) {
+			DiscordRelay.LOGGER.info("Registered slash command '{}'", (jsonElement as JsonObject)["name"]?.jsonPrimitive?.content)
+		}
+
+		return request(
+			method = HTTP.Method.Put,
+			endpoint = "applications/$identifier/commands",
+			payload= payload
+		)
+	}
 }

@@ -50,6 +50,35 @@ class DiscordRelay: DedicatedServerModInitializer {
 					gateway.open( gatewayUrl )
 				}
 
+				// Register slash commands
+				coroutineScope.launch {
+					API.registerSlashCommands(
+						configuration.discord.application.id,
+						"""
+							[
+								{
+									"name": "whitelist",
+									"type": 1,
+									"description": "Whitelist yourself",
+									"options": [
+										{
+											"name": "username",
+											"type": 3,
+											"description": "The username of the user you want to whitelist",
+											"required": true
+										}
+									]
+								},
+								{
+									"name": "list",
+									"type": 1,
+									"description": "Get a list of the currently online players"
+								}
+							]
+						""".trimIndent()
+					)
+				}
+
 				ServerLifecycleEvents.SERVER_STOPPING.register {
 					coroutineScope.launch {
 						LOGGER.debug( "Closing Discord Gateway connection..." )
