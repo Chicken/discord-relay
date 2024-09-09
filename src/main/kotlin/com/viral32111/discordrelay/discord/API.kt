@@ -105,7 +105,18 @@ object API {
 		return request(
 			method = HTTP.Method.Put,
 			endpoint = "applications/$identifier/commands",
-			payload= payload
+			payload = payload
+		)
+	}
+
+	// https://discord.com/developers/docs/interactions/receiving-and-responding#responding-to-an-interaction
+	suspend fun respondToInteraction( identifier: String, token: String, payloadString: String): JsonElement {
+		val payload = Json.parseToJsonElement(payloadString.trimIndent()) as JsonObject
+
+		return request(
+			method = HTTP.Method.Post,
+			endpoint = "interactions/$identifier/$token/callback",
+			payload = payload
 		)
 	}
 }

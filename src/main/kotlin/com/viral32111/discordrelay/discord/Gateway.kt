@@ -1,5 +1,6 @@
 package com.viral32111.discordrelay.discord
 
+import com.mojang.authlib.GameProfile
 import com.viral32111.discordrelay.DiscordRelay
 import com.viral32111.discordrelay.HTTP
 import com.viral32111.discordrelay.JSON
@@ -17,6 +18,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import net.minecraft.server.PlayerManager
+import net.minecraft.server.WhitelistEntry
 import net.minecraft.text.Style
 import net.minecraft.text.Text
 import net.minecraft.text.TextColor
@@ -25,6 +27,7 @@ import java.io.IOException
 import java.net.URI
 import java.net.http.WebSocket
 import java.time.Duration
+import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import kotlin.math.pow
@@ -332,6 +335,81 @@ class Gateway( private val configuration: Configuration, private val playerManag
 	// https://discord.com/developers/docs/topics/gateway-events#interaction-create
 	private fun handleInteractionCreate( interaction: Gateway.Event.Data.InteractionCreate) {
 		DiscordRelay.LOGGER.debug( "Received interaction '${interaction.data?.name}' (${interaction.data?.identifier}) in channel ${interaction.channelIdentifier} from '@${interaction.member?.user?.username}' (${ interaction.member?.user?.identifier })" )
+
+		if(interaction.type != 2) return // Only handle slash command interactions (for now)
+
+		if(interaction.data?.name == "whitelist") {
+			val username = interaction.data.options?.get(0)?.value
+
+			coroutineScope.launch {
+				if(username == null) {
+					API.respondToInteraction(
+						interaction.identifier,
+						interaction.token,
+						"""
+							{
+								"type": 4,
+								"data": {
+									"content": "Invalid username!",
+									"flags": 64
+								}
+							}
+						""".trimIndent()
+					)
+				}
+
+				val gameProfile = playerManager.server.userCache?.findByName(username)
+
+				if (gameProfile?.isEmpty == true || gameProfile == null) {
+					API.respondToInteraction(
+						interaction.identifier,
+						interaction.token,
+						"""
+							{
+								"type": 4,
+								"data": {
+									"content": "Invalid username!",
+									"flags": 64
+								}
+							}
+						""".trimIndent()
+					)
+				} else {
+					if(playerManager.whitelist.get(gameProfile.get()) != null) {
+						API.respondToInteraction(
+							interaction.identifier,
+							interaction.token,
+							"""
+								{
+									"type": 4,
+									"data": {
+										"content": "$username is already on the whitelist!",
+										"flags": 64
+									}
+								}
+							""".trimIndent()
+						)
+					} else {
+						playerManager.whitelist.add(WhitelistEntry(gameProfile.get()))
+
+						API.respondToInteraction(
+							interaction.identifier,
+							interaction.token,
+							"""
+								{
+									"type": 4,
+									"data": {
+										"content": "Added $username to the whitelist!",
+										"flags": 64
+									}
+								}
+							""".trimIndent()
+						)
+					}
+				}
+			}
+		}
+
 	}
 
 	private fun getMemberRoleColor( member: Guild.Member? ): Int? = member?.roleIdentifiers
