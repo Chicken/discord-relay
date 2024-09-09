@@ -1,6 +1,5 @@
 package com.viral32111.discordrelay.discord
 
-import com.mojang.datafixers.util.Either
 import com.viral32111.discordrelay.DiscordRelay
 import com.viral32111.discordrelay.HTTP
 import com.viral32111.discordrelay.JSON
@@ -97,7 +96,6 @@ object API {
 
 	// https://discord.com/developers/docs/interactions/application-commands#bulk-overwrite-global-application-commands
 	suspend fun registerSlashCommands( identifier: String, payloadString: String): JsonElement {
-
 		val payload = Json.parseToJsonElement(payloadString.trimIndent()) as JsonArray
 
 		for (jsonElement in payload) {

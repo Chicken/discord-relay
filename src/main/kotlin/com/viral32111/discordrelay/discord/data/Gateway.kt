@@ -24,6 +24,7 @@ data class Gateway(
 			const val Ready = "READY"
 			const val MessageCreate = "MESSAGE_CREATE"
 			const val GuildCreate = "GUILD_CREATE"
+			const val InteractionCreate = "INTERACTION_CREATE"
 		}
 
 		// https://discord.com/developers/docs/topics/opcodes-and-status-codes#gateway-gateway-opcodes
@@ -110,6 +111,27 @@ data class Gateway(
 				@Required val roles: List<Guild.Role>
 			)
 
+			// https://discord.com/developers/docs/topics/gateway-events#interaction-create
+			// https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-object-interaction-structure
+			@Serializable
+			data class InteractionCreate(
+				@Required @SerialName("id") val identifier: String,
+				@Required @SerialName("application_id") val applicationId: String,
+				@Required val type: Int,
+				val data: InteractionData? = null,
+				val guild: Guild? = null,
+				@SerialName("guild_id") val guildId: String? = null,
+				@SerialName("channel_id") val channelIdentifier: String? = null,
+				val member: Member? = null,
+				val user: User? = null,
+				@Required val token: String,
+				@Required val version: Int,
+				val message: Message? = null,
+				@Required @SerialName("app_permissions") val appPermissions: String,
+				val locale: String? = null,
+				@SerialName("guild_locale") val guildLocale: String? = null,
+				val context: Int? = null,
+			)
 		}
 
 	}

@@ -329,6 +329,11 @@ class Gateway( private val configuration: Configuration, private val playerManag
 		serverRoles = guild.roles.associateBy { it.identifier }
 	}
 
+	// https://discord.com/developers/docs/topics/gateway-events#interaction-create
+	private fun handleInteractionCreate( interaction: Gateway.Event.Data.InteractionCreate) {
+		DiscordRelay.LOGGER.debug( "Received interaction '${interaction.data?.name}' (${interaction.data?.identifier}) in channel ${interaction.channelIdentifier} from '@${interaction.member?.user?.username}' (${ interaction.member?.user?.identifier })" )
+	}
+
 	private fun getMemberRoleColor( member: Guild.Member? ): Int? = member?.roleIdentifiers
 		?.map { serverRoles?.get( it ) ?: return null }
 		?.maxByOrNull { it.position }
@@ -367,6 +372,7 @@ class Gateway( private val configuration: Configuration, private val playerManag
 					Gateway.Event.Name.Ready -> handleReadyEvent( JSON.decodeFromJsonElement<Gateway.Event.Data.Ready>( event.data ) )
 					Gateway.Event.Name.MessageCreate -> handleMessageCreate( JSON.decodeFromJsonElement<Gateway.Event.Data.MessageCreate>( event.data ) )
 					Gateway.Event.Name.GuildCreate -> handleGuildCreate( JSON.decodeFromJsonElement<Gateway.Event.Data.GuildCreate>( event.data ) )
+					Gateway.Event.Name.InteractionCreate -> handleInteractionCreate( JSON.decodeFromJsonElement<Gateway.Event.Data.InteractionCreate>( event.data ) )
 
 					else -> DiscordRelay.LOGGER.debug( "Ignoring Gateway event '${ event.name }' with data '${ JSON.encodeToString( event.data ) }'." )
 				}
