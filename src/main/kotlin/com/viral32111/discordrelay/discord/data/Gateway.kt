@@ -116,21 +116,9 @@ data class Gateway(
 			@Serializable
 			data class InteractionCreate(
 				@Required @SerialName("id") val identifier: String,
-				@Required @SerialName("application_id") val applicationId: String,
 				@Required val type: Int,
 				val data: InteractionData? = null,
-				val guild: Guild? = null,
-				@SerialName("guild_id") val guildId: String? = null,
-				@SerialName("channel_id") val channelIdentifier: String? = null,
-				val member: Member? = null,
-				val user: User? = null,
 				@Required val token: String,
-				@Required val version: Int,
-				val message: Message? = null,
-				@Required @SerialName("app_permissions") val appPermissions: String,
-				val locale: String? = null,
-				@SerialName("guild_locale") val guildLocale: String? = null,
-				val context: Int? = null,
 			)
 		}
 

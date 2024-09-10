@@ -7,10 +7,7 @@ import kotlinx.serialization.Serializable
 // https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-object-interaction-data
 @Serializable
 data class InteractionData(
-    @Required @SerialName("id") val identifier: String,
     @Required @SerialName("name") val name: String,
     @Required @SerialName("type") val type: Int,
     @SerialName("options") val options: List<ApplicationCommandInteractionDataOption>? = null,
-    @SerialName("guild_id") val guildId: String? = null,
-    @SerialName("target_id") val targetId: String? = null,
 )

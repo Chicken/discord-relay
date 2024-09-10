@@ -333,7 +333,7 @@ class Gateway( private val configuration: Configuration, private val playerManag
 
 	// https://discord.com/developers/docs/topics/gateway-events#interaction-create
 	private fun handleInteractionCreate( interaction: Gateway.Event.Data.InteractionCreate) {
-		DiscordRelay.LOGGER.debug( "Received interaction '${interaction.data?.name}' (${interaction.data?.identifier}) in channel ${interaction.channelIdentifier} from '@${interaction.member?.user?.username}' (${ interaction.member?.user?.identifier })" )
+		DiscordRelay.LOGGER.debug( "Received interaction '${interaction.data?.name}' (${interaction.identifier})" )
 
 		if(interaction.type != 2) return // Only handle slash command interactions (for now)
 
