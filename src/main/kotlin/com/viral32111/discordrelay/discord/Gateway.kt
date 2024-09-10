@@ -410,7 +410,8 @@ class Gateway( private val configuration: Configuration, private val playerManag
 						{
 							"type": 4,
 							"data": {
-								"content": "${playerList.size}/${playerManager.maxPlayerCount} players online${if(playersOnline != "") {": $playersOnline"} else {""}}"
+								"content": "${playerList.size}/${playerManager.maxPlayerCount} players online${if(playersOnline != "") {": $playersOnline"} else {""}}",
+								"flags": 64
 							}
 						}
 					""".trimIndent()
