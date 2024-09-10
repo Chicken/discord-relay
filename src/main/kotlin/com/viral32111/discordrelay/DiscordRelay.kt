@@ -12,6 +12,7 @@ import net.fabricmc.loader.api.FabricLoader
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.nio.file.StandardOpenOption
+import java.util.Base64
 import kotlin.io.path.*
 
 @Suppress( "UNUSED" )
@@ -53,7 +54,7 @@ class DiscordRelay: DedicatedServerModInitializer {
 				// Register slash commands
 				coroutineScope.launch {
 					API.registerSlashCommands(
-						configuration.discord.application.id,
+						String(Base64.getDecoder().decode(configuration.discord.application.token.split(".")[0])),
 						"""
 							[
 								{
