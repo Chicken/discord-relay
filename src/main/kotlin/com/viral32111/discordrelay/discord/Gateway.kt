@@ -394,7 +394,13 @@ class Gateway( private val configuration: Configuration, private val playerManag
 		}
 
 		if(interaction.data?.name == "list") {
-			val playerList = playerManager.playerList.map{ player: ServerPlayerEntity -> player.name.string }
+			val playerList = playerManager.playerList.map { player: ServerPlayerEntity ->
+				if (player.displayName?.string.isNullOrEmpty() || player.displayName?.string == player.name.string) {
+					player.name.string
+				} else {
+					"${player.displayName?.string} (${player.name.string})"
+				}
+			}
 			val playersOnline = when {
 				playerList.isEmpty() -> ""
 				playerList.size == 1 -> playerList[0]
