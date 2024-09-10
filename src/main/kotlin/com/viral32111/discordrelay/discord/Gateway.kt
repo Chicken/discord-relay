@@ -14,9 +14,14 @@ import kotlinx.coroutines.time.withTimeout
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import net.minecraft.server.PlayerManager
+import net.minecraft.server.WhitelistEntry
+import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.text.Style
 import net.minecraft.text.Text
 import net.minecraft.text.TextColor
@@ -329,6 +334,93 @@ class Gateway( private val configuration: Configuration, private val playerManag
 		serverRoles = guild.roles.associateBy { it.identifier }
 	}
 
+	// https://discord.com/developers/docs/topics/gateway-events#interaction-create
+	private fun handleInteractionCreate( interaction: Gateway.Event.Data.InteractionCreate) {
+		DiscordRelay.LOGGER.debug( "Received interaction '${interaction.data?.name}' (${interaction.identifier})" )
+
+		if(interaction.type != 2) return // Only handle slash command interactions (for now)
+
+		if(interaction.data?.name == "whitelist") {
+			val username = interaction.data.options?.get(0)?.value
+
+			coroutineScope.launch {
+				val gameProfile = playerManager.server.userCache?.findByName(username)
+
+				if(username == null || gameProfile?.isEmpty == true || gameProfile == null) {
+					API.respondToInteraction(
+						interaction.identifier,
+						interaction.token,
+						buildJsonObject {
+							put("type", 4)
+							putJsonObject("data") {
+								put("content", "Invalid username!")
+								put("flags", 64)
+							}
+						}
+					)
+				} else {
+					if(playerManager.whitelist.get(gameProfile.get()) != null) {
+						API.respondToInteraction(
+							interaction.identifier,
+							interaction.token,
+							buildJsonObject {
+								put("type", 4)
+								putJsonObject("data") {
+									put("content", "$username is already on the whitelist!")
+									put("flags", 64)
+								}
+							}
+						)
+					} else {
+						playerManager.whitelist.add(WhitelistEntry(gameProfile.get()))
+
+						API.respondToInteraction(
+							interaction.identifier,
+							interaction.token,
+							buildJsonObject {
+								put("type", 4)
+								putJsonObject("data") {
+									put("content", "Added $username to the whitelist!")
+									put("flags", 64)
+								}
+							}
+						)
+					}
+				}
+			}
+		}
+
+		if(interaction.data?.name == "list") {
+			val playerList = playerManager.playerList.map { player: ServerPlayerEntity ->
+				if (player.displayName?.string.isNullOrEmpty() || player.displayName?.string == player.name.string) {
+					player.name.string
+				} else {
+					"${player.displayName?.string} (${player.name.string})"
+				}
+			}
+			val playersOnline = when {
+				playerList.isEmpty() -> ""
+				playerList.size == 1 -> playerList[0]
+				playerList.size == 2 -> "${playerList[0]} and ${playerList[1]}"
+				else -> playerList.dropLast(1).joinToString(", ") + ", and " + playerList.last()
+			}
+
+			coroutineScope.launch {
+				API.respondToInteraction(
+					interaction.identifier,
+					interaction.token,
+					buildJsonObject {
+						put("type", 4)
+						putJsonObject("data") {
+							put("content", "${playerList.size}/${playerManager.maxPlayerCount} players online${if(playersOnline != "") {": $playersOnline"} else {""}}")
+							put("flags", 64)
+						}
+					}
+				)
+			}
+		}
+	}
+
 	private fun getMemberRoleColor( member: Guild.Member? ): Int? = member?.roleIdentifiers
 		?.map { serverRoles?.get( it ) ?: return null }
 		?.maxByOrNull { it.position }
@@ -367,6 +459,7 @@ class Gateway( private val configuration: Configuration, private val playerManag
 					Gateway.Event.Name.Ready -> handleReadyEvent( JSON.decodeFromJsonElement<Gateway.Event.Data.Ready>( event.data ) )
 					Gateway.Event.Name.MessageCreate -> handleMessageCreate( JSON.decodeFromJsonElement<Gateway.Event.Data.MessageCreate>( event.data ) )
 					Gateway.Event.Name.GuildCreate -> handleGuildCreate( JSON.decodeFromJsonElement<Gateway.Event.Data.GuildCreate>( event.data ) )
+					Gateway.Event.Name.InteractionCreate -> handleInteractionCreate( JSON.decodeFromJsonElement<Gateway.Event.Data.InteractionCreate>( event.data ) )
 
 					else -> DiscordRelay.LOGGER.debug( "Ignoring Gateway event '${ event.name }' with data '${ JSON.encodeToString( event.data ) }'." )
 				}

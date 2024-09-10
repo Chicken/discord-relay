@@ -6,12 +6,17 @@ import com.viral32111.discordrelay.discord.Gateway
 import com.viral32111.discordrelay.helper.Version
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import net.fabricmc.api.DedicatedServerModInitializer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.loader.api.FabricLoader
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.nio.file.StandardOpenOption
+import java.util.Base64
 import kotlin.io.path.*
 
 @Suppress( "UNUSED" )
@@ -48,6 +53,39 @@ class DiscordRelay: DedicatedServerModInitializer {
 					val gatewayUrl = API.getGateway().url
 					LOGGER.debug( "Discord Gateway URL: '$gatewayUrl'" )
 					gateway.open( gatewayUrl )
+				}
+
+				// Register slash commands
+				coroutineScope.launch {
+					API.registerSlashCommands(
+						String(Base64.getDecoder().decode(configuration.discord.application.token.split(".")[0])),
+						buildJsonArray {
+							add(
+								buildJsonObject {
+									put("name", "whitelist")
+									put("type", 1)
+									put("description", "Whitelist yourself")
+									putJsonArray("options") {
+										add(
+											buildJsonObject {
+												put("name", "username")
+												put("type", 3)
+												put("description", "The username of the user you want to whitelist")
+												put("required", true)
+											}
+										)
+									}
+								}
+							)
+							add(
+								buildJsonObject {
+									put("name", "list")
+									put("type", 1)
+									put("description", "Get a list of the currently online players")
+								}
+							)
+						}
+					)
 				}
 
 				ServerLifecycleEvents.SERVER_STOPPING.register {
