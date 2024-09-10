@@ -95,9 +95,7 @@ object API {
 		{ sendWebhookEmbed( identifier, token, false, threadId, EmbedBuilder().apply( builderBlock ).build() ) }
 
 	// https://discord.com/developers/docs/interactions/application-commands#bulk-overwrite-global-application-commands
-	suspend fun registerSlashCommands( identifier: String, payloadString: String): JsonElement {
-		val payload = Json.parseToJsonElement(payloadString.trimIndent()) as JsonArray
-
+	suspend fun registerSlashCommands( identifier: String, payload: JsonArray): JsonElement {
 		for (jsonElement in payload) {
 			DiscordRelay.LOGGER.info("Registered slash command '{}'", (jsonElement as JsonObject)["name"]?.jsonPrimitive?.content)
 		}
@@ -110,13 +108,9 @@ object API {
 	}
 
 	// https://discord.com/developers/docs/interactions/receiving-and-responding#responding-to-an-interaction
-	suspend fun respondToInteraction( identifier: String, token: String, payloadString: String): JsonElement {
-		val payload = Json.parseToJsonElement(payloadString.trimIndent()) as JsonObject
-
-		return request(
-			method = HTTP.Method.Post,
-			endpoint = "interactions/$identifier/$token/callback",
-			payload = payload
-		)
-	}
+	suspend fun respondToInteraction( identifier: String, token: String, payload: JsonObject): JsonElement = request(
+		method = HTTP.Method.Post,
+		endpoint = "interactions/$identifier/$token/callback",
+		payload = payload
+	)
 }

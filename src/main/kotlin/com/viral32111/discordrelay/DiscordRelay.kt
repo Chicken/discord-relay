@@ -6,6 +6,10 @@ import com.viral32111.discordrelay.discord.Gateway
 import com.viral32111.discordrelay.helper.Version
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import net.fabricmc.api.DedicatedServerModInitializer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.loader.api.FabricLoader
@@ -55,28 +59,32 @@ class DiscordRelay: DedicatedServerModInitializer {
 				coroutineScope.launch {
 					API.registerSlashCommands(
 						String(Base64.getDecoder().decode(configuration.discord.application.token.split(".")[0])),
-						"""
-							[
-								{
-									"name": "whitelist",
-									"type": 1,
-									"description": "Whitelist yourself",
-									"options": [
-										{
-											"name": "username",
-											"type": 3,
-											"description": "The username of the user you want to whitelist",
-											"required": true
-										}
-									]
-								},
-								{
-									"name": "list",
-									"type": 1,
-									"description": "Get a list of the currently online players"
+						buildJsonArray {
+							add(
+								buildJsonObject {
+									put("name", "whitelist")
+									put("type", 1)
+									put("description", "Whitelist yourself")
+									putJsonArray("options") {
+										add(
+											buildJsonObject {
+												put("name", "username")
+												put("type", 3)
+												put("description", "The username of the user you want to whitelist")
+												put("required", true)
+											}
+										)
+									}
 								}
-							]
-						""".trimIndent()
+							)
+							add(
+								buildJsonObject {
+									put("name", "list")
+									put("type", 1)
+									put("description", "Get a list of the currently online players")
+								}
+							)
+						}
 					)
 				}
 

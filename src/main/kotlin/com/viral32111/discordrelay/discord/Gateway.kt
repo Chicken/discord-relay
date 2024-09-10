@@ -14,8 +14,11 @@ import kotlinx.coroutines.time.withTimeout
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import net.minecraft.server.PlayerManager
 import net.minecraft.server.WhitelistEntry
 import net.minecraft.server.network.ServerPlayerEntity
@@ -347,30 +350,26 @@ class Gateway( private val configuration: Configuration, private val playerManag
 					API.respondToInteraction(
 						interaction.identifier,
 						interaction.token,
-						"""
-							{
-								"type": 4,
-								"data": {
-									"content": "Invalid username!",
-									"flags": 64
-								}
+						buildJsonObject {
+							put("type", 4)
+							putJsonObject("data") {
+								put("content", "Invalid username!")
+								put("flags", 64)
 							}
-						""".trimIndent()
+						}
 					)
 				} else {
 					if(playerManager.whitelist.get(gameProfile.get()) != null) {
 						API.respondToInteraction(
 							interaction.identifier,
 							interaction.token,
-							"""
-								{
-									"type": 4,
-									"data": {
-										"content": "$username is already on the whitelist!",
-										"flags": 64
-									}
+							buildJsonObject {
+								put("type", 4)
+								putJsonObject("data") {
+									put("content", "$username is already on the whitelist!")
+									put("flags", 64)
 								}
-							""".trimIndent()
+							}
 						)
 					} else {
 						playerManager.whitelist.add(WhitelistEntry(gameProfile.get()))
@@ -378,15 +377,13 @@ class Gateway( private val configuration: Configuration, private val playerManag
 						API.respondToInteraction(
 							interaction.identifier,
 							interaction.token,
-							"""
-								{
-									"type": 4,
-									"data": {
-										"content": "Added $username to the whitelist!",
-										"flags": 64
-									}
+							buildJsonObject {
+								put("type", 4)
+								putJsonObject("data") {
+									put("content", "Added $username to the whitelist!")
+									put("flags", 64)
 								}
-							""".trimIndent()
+							}
 						)
 					}
 				}
@@ -412,15 +409,13 @@ class Gateway( private val configuration: Configuration, private val playerManag
 				API.respondToInteraction(
 					interaction.identifier,
 					interaction.token,
-					"""
-						{
-							"type": 4,
-							"data": {
-								"content": "${playerList.size}/${playerManager.maxPlayerCount} players online${if(playersOnline != "") {": $playersOnline"} else {""}}",
-								"flags": 64
-							}
+					buildJsonObject {
+						put("type", 4)
+						putJsonObject("data") {
+							put("content", "${playerList.size}/${playerManager.maxPlayerCount} players online${if(playersOnline != "") {": $playersOnline"} else {""}}")
+							put("flags", 64)
 						}
-					""".trimIndent()
+					}
 				)
 			}
 		}
