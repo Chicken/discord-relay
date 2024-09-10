@@ -19,6 +19,8 @@ allowing for easy communication between players on a Minecraft server and member
 - Added support for Styled Nicknames
 - Added support for Vanish
 - Added support for using a Thread as a chat channel
+- `/list` Discord command to view player list
+- `/whitelist <username>` Discord command for players to self-whitelist
 
 ## 📥 Usage
 

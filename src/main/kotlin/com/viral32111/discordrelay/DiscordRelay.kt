@@ -6,10 +6,6 @@ import com.viral32111.discordrelay.discord.Gateway
 import com.viral32111.discordrelay.helper.Version
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
 import net.fabricmc.api.DedicatedServerModInitializer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.loader.api.FabricLoader
@@ -55,37 +51,27 @@ class DiscordRelay: DedicatedServerModInitializer {
 					gateway.open( gatewayUrl )
 				}
 
+				val applicationId = String(Base64.getDecoder().decode(configuration.discord.application.token.split(".")[0]))
+
 				// Register slash commands
 				coroutineScope.launch {
-					API.registerSlashCommands(
-						String(Base64.getDecoder().decode(configuration.discord.application.token.split(".")[0])),
-						buildJsonArray {
-							add(
-								buildJsonObject {
-									put("name", "whitelist")
-									put("type", 1)
-									put("description", "Whitelist yourself")
-									putJsonArray("options") {
-										add(
-											buildJsonObject {
-												put("name", "username")
-												put("type", 3)
-												put("description", "The username of the user you want to whitelist")
-												put("required", true)
-											}
-										)
-									}
+					API.registerSlashCommands(applicationId) {
+						command {
+							name = "whitelist"
+							description = "Whitelist yourself"
+							options {
+								stringOption {
+									name = "username"
+									description = "The username of the user you want to whitelist"
+									required = true
 								}
-							)
-							add(
-								buildJsonObject {
-									put("name", "list")
-									put("type", 1)
-									put("description", "Get a list of the currently online players")
-								}
-							)
+							}
 						}
-					)
+						command {
+							name = "list"
+							description = "Get a list of the currently online players"
+						}
+					}
 				}
 
 				ServerLifecycleEvents.SERVER_STOPPING.register {

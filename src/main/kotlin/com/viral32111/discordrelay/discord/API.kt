@@ -95,22 +95,16 @@ object API {
 		{ sendWebhookEmbed( identifier, token, false, threadId, EmbedBuilder().apply( builderBlock ).build() ) }
 
 	// https://discord.com/developers/docs/interactions/application-commands#bulk-overwrite-global-application-commands
-	suspend fun registerSlashCommands( identifier: String, payload: JsonArray): JsonElement {
-		for (jsonElement in payload) {
-			DiscordRelay.LOGGER.info("Registered slash command '{}'", (jsonElement as JsonObject)["name"]?.jsonPrimitive?.content)
-		}
-
-		return request(
-			method = HTTP.Method.Put,
-			endpoint = "applications/$identifier/commands",
-			payload = payload
-		)
-	}
+	suspend fun registerSlashCommands( identifier: String, builderBlock: SlashCommandsBuilder.() -> Unit): JsonElement = request(
+		method = HTTP.Method.Put,
+		endpoint = "applications/$identifier/commands",
+		payload = JSON.encodeToJsonElement(SlashCommandsBuilder().apply(builderBlock).build())
+	)
 
 	// https://discord.com/developers/docs/interactions/receiving-and-responding#responding-to-an-interaction
-	suspend fun respondToInteraction( identifier: String, token: String, payload: JsonObject): JsonElement = request(
+	suspend fun respondToInteractionWithText( identifier: String, token: String, builderBlock: InteractionTextResponseBuilder.() -> Unit): JsonElement = request(
 		method = HTTP.Method.Post,
 		endpoint = "interactions/$identifier/$token/callback",
-		payload = payload
+		payload = JSON.encodeToJsonElement( InteractionTextResponseBuilder().apply( builderBlock ).build() )
 	)
 }

@@ -14,11 +14,10 @@ import kotlinx.coroutines.time.withTimeout
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonObject
+import me.drex.vanish.api.VanishAPI
+import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.server.PlayerManager
 import net.minecraft.server.WhitelistEntry
 import net.minecraft.server.network.ServerPlayerEntity
@@ -65,6 +64,8 @@ class Gateway( private val configuration: Configuration, private val playerManag
 
 	// Server closure
 	private var serverClosed = false;
+
+	private var hasVanish = FabricLoader.getInstance().isModLoaded("melius-vanish");
 
 	/**
 	 * Opens a WebSocket connection to the given URL, closing any existing connections beforehand.
@@ -347,51 +348,39 @@ class Gateway( private val configuration: Configuration, private val playerManag
 				val gameProfile = playerManager.server.userCache?.findByName(username)
 
 				if(username == null || gameProfile?.isEmpty == true || gameProfile == null) {
-					API.respondToInteraction(
+					API.respondToInteractionWithText(
 						interaction.identifier,
 						interaction.token,
-						buildJsonObject {
-							put("type", 4)
-							putJsonObject("data") {
-								put("content", "Invalid username!")
-								put("flags", 64)
-							}
-						}
-					)
+					) {
+						content = "Invalid username!"
+						hidden()
+					}
 				} else {
 					if(playerManager.whitelist.get(gameProfile.get()) != null) {
-						API.respondToInteraction(
+						API.respondToInteractionWithText(
 							interaction.identifier,
 							interaction.token,
-							buildJsonObject {
-								put("type", 4)
-								putJsonObject("data") {
-									put("content", "$username is already on the whitelist!")
-									put("flags", 64)
-								}
-							}
-						)
+						) {
+							content = "$username is already on the whitelist!"
+							hidden()
+						}
 					} else {
 						playerManager.whitelist.add(WhitelistEntry(gameProfile.get()))
 
-						API.respondToInteraction(
+						API.respondToInteractionWithText(
 							interaction.identifier,
 							interaction.token,
-							buildJsonObject {
-								put("type", 4)
-								putJsonObject("data") {
-									put("content", "Added $username to the whitelist!")
-									put("flags", 64)
-								}
-							}
-						)
+						) {
+							content = "Added $username to the whitelist!"
+							hidden()
+						}
 					}
 				}
 			}
 		}
 
 		if(interaction.data?.name == "list") {
-			val playerList = playerManager.playerList.map { player: ServerPlayerEntity ->
+			val playerList = playerManager.playerList.filter { !hasVanish || !VanishAPI.isVanished(it) }.map { player: ServerPlayerEntity ->
 				if (player.displayName?.string.isNullOrEmpty() || player.displayName?.string == player.name.string) {
 					player.name.string
 				} else {
@@ -406,17 +395,13 @@ class Gateway( private val configuration: Configuration, private val playerManag
 			}
 
 			coroutineScope.launch {
-				API.respondToInteraction(
+				API.respondToInteractionWithText(
 					interaction.identifier,
 					interaction.token,
-					buildJsonObject {
-						put("type", 4)
-						putJsonObject("data") {
-							put("content", "${playerList.size}/${playerManager.maxPlayerCount} players online${if(playersOnline != "") {": $playersOnline"} else {""}}")
-							put("flags", 64)
-						}
-					}
-				)
+				) {
+					content = "${playerList.size}/${playerManager.maxPlayerCount} players online${if(playersOnline != "") {": $playersOnline"} else {""}}"
+					hidden()
+				}
 			}
 		}
 	}
