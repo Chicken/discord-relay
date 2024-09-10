@@ -1,6 +1,5 @@
 package com.viral32111.discordrelay.discord
 
-import com.mojang.authlib.GameProfile
 import com.viral32111.discordrelay.DiscordRelay
 import com.viral32111.discordrelay.HTTP
 import com.viral32111.discordrelay.JSON
@@ -19,6 +18,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import net.minecraft.server.PlayerManager
 import net.minecraft.server.WhitelistEntry
+import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.text.Style
 import net.minecraft.text.Text
 import net.minecraft.text.TextColor
@@ -27,7 +27,6 @@ import java.io.IOException
 import java.net.URI
 import java.net.http.WebSocket
 import java.time.Duration
-import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import kotlin.math.pow
@@ -342,25 +341,9 @@ class Gateway( private val configuration: Configuration, private val playerManag
 			val username = interaction.data.options?.get(0)?.value
 
 			coroutineScope.launch {
-				if(username == null) {
-					API.respondToInteraction(
-						interaction.identifier,
-						interaction.token,
-						"""
-							{
-								"type": 4,
-								"data": {
-									"content": "Invalid username!",
-									"flags": 64
-								}
-							}
-						""".trimIndent()
-					)
-				}
-
 				val gameProfile = playerManager.server.userCache?.findByName(username)
 
-				if (gameProfile?.isEmpty == true || gameProfile == null) {
+				if(username == null || gameProfile?.isEmpty == true || gameProfile == null) {
 					API.respondToInteraction(
 						interaction.identifier,
 						interaction.token,
@@ -410,6 +393,30 @@ class Gateway( private val configuration: Configuration, private val playerManag
 			}
 		}
 
+		if(interaction.data?.name == "list") {
+			val playerList = playerManager.playerList.map{ player: ServerPlayerEntity -> player.name.string }
+			val playersOnline = when {
+				playerList.isEmpty() -> ""
+				playerList.size == 1 -> playerList[0]
+				playerList.size == 2 -> "${playerList[0]} and ${playerList[1]}"
+				else -> playerList.dropLast(1).joinToString(", ") + ", and " + playerList.last()
+			}
+
+			coroutineScope.launch {
+				API.respondToInteraction(
+					interaction.identifier,
+					interaction.token,
+					"""
+						{
+							"type": 4,
+							"data": {
+								"content": "${playerList.size}/${playerManager.maxPlayerCount} players online${if(playersOnline != "") {": $playersOnline"} else {""}}"
+							}
+						}
+					""".trimIndent()
+				)
+			}
+		}
 	}
 
 	private fun getMemberRoleColor( member: Guild.Member? ): Int? = member?.roleIdentifiers
