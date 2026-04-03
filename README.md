@@ -12,7 +12,7 @@ allowing for easy communication between players on a Minecraft server and member
 ## Changes compared to the original
 
 - Upgraded dependencies
-- Updated for 1.21.1
+- Updated for 26.1 with official mappings
 - Removed unnecessary features
 - Removed dependency on viral32111's events mod
 - Fixed Discord reconnection bugs
