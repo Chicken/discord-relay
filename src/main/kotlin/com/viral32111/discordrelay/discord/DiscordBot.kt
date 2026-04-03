@@ -22,26 +22,26 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import me.drex.vanish.api.VanishAPI
 import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.server.PlayerConfigEntry
-import net.minecraft.server.PlayerManager
-import net.minecraft.server.WhitelistEntry
-import net.minecraft.text.Style
-import net.minecraft.text.Text
-import net.minecraft.text.TextColor
-import net.minecraft.util.Formatting
+import net.minecraft.server.players.NameAndId
+import net.minecraft.server.players.PlayerList
+import net.minecraft.server.players.UserWhiteListEntry
+import net.minecraft.network.chat.Style
+import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.TextColor
+import net.minecraft.ChatFormatting
 import java.util.*
 
 object DiscordBot {
 	private lateinit var kord: Kord
 	private lateinit var configuration: Configuration
-	private lateinit var playerManager: PlayerManager
+	private lateinit var playerManager: PlayerList
 
 	private val coroutineScope = CoroutineScope( Dispatchers.IO )
 	private var loginJob: Job? = null
 
 	private val hasVanish by lazy { FabricLoader.getInstance().isModLoaded( "melius-vanish" ) }
 
-	suspend fun initialize( config: Configuration, pm: PlayerManager ) {
+	suspend fun initialize( config: Configuration, pm: PlayerList) {
 		configuration = config
 		playerManager = pm
 
@@ -77,20 +77,20 @@ object DiscordBot {
 			val style = if ( memberRoleColor != null )
 				Style.EMPTY.withColor( memberRoleColor.rgb )
 			else
-				Style.EMPTY.withColor( TextColor.fromFormatting( Formatting.GREEN ) )
+				Style.EMPTY.withColor( TextColor.fromLegacyFormat( ChatFormatting.GREEN ) )
 
 			val displayName = member.nickname ?: author.globalName ?: author.username
 
-			val chatMessage: Text = Text.literal( "" )
+			val chatMessage: Component = Component.literal( "" )
 				.append(
-					Text.literal( "(Discord) " )
-						.setStyle( Style.EMPTY.withColor( TextColor.fromFormatting( Formatting.BLUE ) ) )
-						.append( Text.literal( displayName ).setStyle( style ) )
+					Component.literal( "(Discord) " )
+						.setStyle( Style.EMPTY.withColor( TextColor.fromLegacyFormat( ChatFormatting.BLUE ) ) )
+						.append( Component.literal( displayName ).setStyle( style ) )
 				)
-				.append( Text.literal( ": " ) )
-				.append( Text.literal( message.content ) )
+				.append( Component.literal( ": " ) )
+				.append( Component.literal( message.content ) )
 
-			playerManager.broadcast( chatMessage, false )
+			playerManager.broadcastSystemMessage( chatMessage, false )
 		}
 
 		kord.on<ChatInputCommandInteractionCreateEvent> {
@@ -107,16 +107,16 @@ object DiscordBot {
 						return@on
 					}
 
-					val optional: Optional<PlayerConfigEntry> = playerManager.server.getApiServices().nameToIdCache().findByName( username )
+					val optional: Optional<NameAndId> = playerManager.server.services().nameToIdCache().get( username )
 
 					if ( optional.isEmpty ) {
 						response.respond { content = "Invalid username!" }
 					} else {
 						val profile = optional.get()
-						if ( playerManager.whitelist.isAllowed( profile ) ) {
+						if ( playerManager.whiteList.isWhiteListed( profile ) ) {
 							response.respond { content = "$username is already on the whitelist!" }
 						} else {
-							playerManager.whitelist.add( WhitelistEntry( profile ) )
+							playerManager.whiteList.add( UserWhiteListEntry( profile ) )
 							response.respond { content = "Added $username to the whitelist!" }
 						}
 					}
@@ -125,7 +125,7 @@ object DiscordBot {
 				"list" -> {
 					val response = interaction.deferEphemeralResponse()
 
-					val playerList = playerManager.playerList
+					val playerList = playerManager.players
 						.filter { !hasVanish || !VanishAPI.isVanished( it ) }
 						.map { player ->
 							val displayName = player.displayName?.string
@@ -144,7 +144,7 @@ object DiscordBot {
 					}
 
 					response.respond {
-						content = "${ playerList.size }/${ playerManager.maxPlayerCount } players online${ if ( playersOnline.isNotEmpty() ) ": $playersOnline" else "" }"
+						content = "${ playerList.size }/${ playerManager.maxPlayers} players online${ if ( playersOnline.isNotEmpty() ) ": $playersOnline" else "" }"
 					}
 				}
 			}

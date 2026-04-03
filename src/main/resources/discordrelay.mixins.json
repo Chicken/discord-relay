@@ -11,8 +11,8 @@
   "mixins": [],
   "client": [],
   "server": [
-    "PlayerManagerMixin",
-    "ServerPlayerEntityMixin",
-    "PlayerAdvancementTrackerMixin"
+    "PlayerListMixin",
+    "ServerPlayerMixin",
+    "PlayerAdvancementsMixin"
   ]
 }

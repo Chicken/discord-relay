@@ -35,12 +35,12 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 
 	ServerMessageEvents.CHAT_MESSAGE.register { message, player, _ ->
 		if ( hasVanish && VanishAPI.isVanished(player) ) return@register
-		DiscordRelay.LOGGER.debug( "Relaying chat message '${ message.content.string }' for player '${ player.name.string } (${ player.uuidAsString })...'" )
+		DiscordRelay.LOGGER.debug( "Relaying chat message '${ message.decoratedContent().string }' for player '${ player.name.string } (${ player.stringUUID})...'" )
 
 		coroutineScope.launch {
 			DiscordBot.sendTextMessage(
-				content = message.content.string,
-				avatarUrl = avatarUrl.format( player.uuidAsString ),
+				content = message.decoratedContent().string,
+				avatarUrl = avatarUrl.format( player.stringUUID),
 				userName = player.displayName?.string ?: player.name.string
 			)
 		}
@@ -48,9 +48,9 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 
 	PlayerJoinCallback.EVENT.register { player ->
 		if ( hasVanish && VanishAPI.isVanished(player) ) return@register
-		val playerAvatarUrl = avatarUrl.format( player.uuidAsString )
+		val playerAvatarUrl = avatarUrl.format( player.stringUUID)
 
-		DiscordRelay.LOGGER.debug( "Relaying join message for player '${ player.name.string } (${ player.uuidAsString })...'" )
+		DiscordRelay.LOGGER.debug( "Relaying join message for player '${ player.name.string } (${ player.stringUUID})...'" )
 
 		coroutineScope.launch {
 			DiscordBot.sendEmbedMessage(
@@ -63,9 +63,9 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 
 	PlayerLeaveCallback.EVENT.register { player ->
 		if ( hasVanish && VanishAPI.isVanished(player) ) return@register
-		val playerAvatarUrl = avatarUrl.format( player.uuidAsString )
+		val playerAvatarUrl = avatarUrl.format( player.stringUUID)
 
-		DiscordRelay.LOGGER.debug( "Relaying leave message for player '${ player.name.string } (${ player.uuidAsString })...'" )
+		DiscordRelay.LOGGER.debug( "Relaying leave message for player '${ player.name.string } (${ player.stringUUID})...'" )
 
 		coroutineScope.launch {
 			DiscordBot.sendEmbedMessage(
@@ -78,7 +78,7 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 
 	if ( hasVanish ) {
 		VanishEvents.VANISH_EVENT.register { player, vanish ->
-			val playerAvatarUrl = avatarUrl.format( player.uuidAsString )
+			val playerAvatarUrl = avatarUrl.format( player.stringUUID)
 			if ( vanish ) {
 				coroutineScope.launch {
 					DiscordBot.sendEmbedMessage(
@@ -101,10 +101,10 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 
 	PlayerDeathCallback.EVENT.register { player, damageSource ->
 		if ( hasVanish && VanishAPI.isVanished(player) ) return@register
-		val deathMessage = damageSource.getDeathMessage( player ).string
-		val playerAvatarUrl = avatarUrl.format( player.uuidAsString )
+		val deathMessage = damageSource.getLocalizedDeathMessage( player ).string
+		val playerAvatarUrl = avatarUrl.format( player.stringUUID)
 
-		DiscordRelay.LOGGER.debug( "Relaying death message '$deathMessage' for player '${ player.name.string } (${ player.uuidAsString })...'" )
+		DiscordRelay.LOGGER.debug( "Relaying death message '$deathMessage' for player '${ player.name.string } (${ player.stringUUID})...'" )
 
 		coroutineScope.launch {
 			DiscordBot.sendEmbedMessage(
@@ -119,13 +119,13 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 		if ( hasVanish && VanishAPI.isVanished(player) ) return@register
 		if ( !shouldAnnounceToChat ) return@register
 
-		val playerAvatarUrl = avatarUrl.format( player.uuidAsString )
+		val playerAvatarUrl = avatarUrl.format( player.stringUUID)
 		val advancementTitle = advancement.display?.get()?.title?.string
 		val advancementDescription = advancement.display?.get()?.description?.string
 		val advancementText = advancement.getText() ?: "gained the achievement"
 		val advancementColor = advancement.getColor()
 
-		DiscordRelay.LOGGER.debug( "Relaying advancement '$advancementTitle' completion message for player '${ player.name.string } (${ player.uuidAsString })...'" )
+		DiscordRelay.LOGGER.debug( "Relaying advancement '$advancementTitle' completion message for player '${ player.name.string } (${ player.stringUUID})...'" )
 
 		coroutineScope.launch {
 			DiscordBot.sendEmbedMessage(

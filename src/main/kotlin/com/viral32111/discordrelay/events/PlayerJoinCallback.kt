@@ -2,7 +2,7 @@ package com.viral32111.discordrelay.events
 
 import net.fabricmc.fabric.api.event.Event
 import net.fabricmc.fabric.api.event.EventFactory
-import net.minecraft.server.network.ServerPlayerEntity
+import net.minecraft.server.level.ServerPlayer
 
 fun interface PlayerJoinCallback {
     companion object {
@@ -15,5 +15,5 @@ fun interface PlayerJoinCallback {
         }
     }
 
-    fun interact( player: ServerPlayerEntity )
+    fun interact( player: ServerPlayer)
 }

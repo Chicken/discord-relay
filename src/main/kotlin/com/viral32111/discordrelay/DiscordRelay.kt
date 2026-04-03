@@ -38,7 +38,7 @@ class DiscordRelay: DedicatedServerModInitializer {
 
 			ServerLifecycleEvents.SERVER_STARTED.register { server ->
 				coroutineScope.launch {
-					DiscordBot.initialize( configuration, server.playerManager )
+					DiscordBot.initialize( configuration, server.playerList)
 					DiscordBot.start()
 				}
 			}

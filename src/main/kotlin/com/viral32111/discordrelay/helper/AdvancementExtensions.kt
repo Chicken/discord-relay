@@ -1,22 +1,22 @@
 package com.viral32111.discordrelay.helper
 
-import net.minecraft.advancement.Advancement
-import net.minecraft.advancement.AdvancementFrame
+import net.minecraft.advancements.Advancement
+import net.minecraft.advancements.AdvancementType
 
-fun AdvancementFrame?.getText(): String? =
+fun AdvancementType?.getText(): String? =
     when ( this ) {
-        AdvancementFrame.TASK -> "has made the advancement"
-        AdvancementFrame.CHALLENGE -> "completed the challenge"
-        AdvancementFrame.GOAL -> "reached the goal"
+        AdvancementType.TASK -> "has made the advancement"
+        AdvancementType.CHALLENGE -> "completed the challenge"
+        AdvancementType.GOAL -> "reached the goal"
         else -> null
     }
 
-fun AdvancementFrame?.getColor(): Int =
+fun AdvancementType?.getColor(): Int =
     when ( this ) {
-        AdvancementFrame.CHALLENGE -> 0xA700A7 // Challenge Purple
+        AdvancementType.CHALLENGE -> 0xA700A7 // Challenge Purple
         else -> 0x54FB54 // Advancement Green
     }
 
-fun Advancement.getText(): String? = display.map { it.frame.getText() }.orElse(null)
+fun Advancement.getText(): String? = display.map { it.type.getText() }.orElse(null)
 
-fun Advancement.getColor(): Int? = display.map { it.frame.getColor() }.orElse(null)
+fun Advancement.getColor(): Int? = display.map { it.type.getColor() }.orElse(null)

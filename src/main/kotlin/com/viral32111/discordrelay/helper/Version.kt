@@ -2,7 +2,7 @@ package com.viral32111.discordrelay.helper
 
 import com.viral32111.discordrelay.DiscordRelay
 import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.MinecraftVersion
+import net.minecraft.DetectedVersion
 
 object Version {
 
@@ -13,7 +13,7 @@ object Version {
 
 	fun java(): String = System.getProperty( "java.version" )
 
-	fun minecraft(): String = MinecraftVersion.create().id()
+	fun minecraft(): String = DetectedVersion.tryDetectVersion().id()
 
 	fun discordRelay(): String = byModIdentifier( "discordrelay" )
 }

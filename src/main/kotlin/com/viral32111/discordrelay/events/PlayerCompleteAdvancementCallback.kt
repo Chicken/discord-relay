@@ -2,8 +2,8 @@ package com.viral32111.discordrelay.events
 
 import net.fabricmc.fabric.api.event.Event
 import net.fabricmc.fabric.api.event.EventFactory
-import net.minecraft.advancement.Advancement
-import net.minecraft.server.network.ServerPlayerEntity
+import net.minecraft.advancements.Advancement
+import net.minecraft.server.level.ServerPlayer
 
 fun interface PlayerCompleteAdvancementCallback {
     companion object {
@@ -16,5 +16,5 @@ fun interface PlayerCompleteAdvancementCallback {
         }
     }
 
-    fun interact( player: ServerPlayerEntity, advancement: Advancement, shouldAnnounceToChat: Boolean )
+    fun interact(player: ServerPlayer, advancement: Advancement, shouldAnnounceToChat: Boolean )
 }

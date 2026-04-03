@@ -34,8 +34,8 @@ dependencies {
 	// Minecraft
 	minecraft( "com.mojang:minecraft:${ project.extra[ "minecraft_version" ] }" )
 
-	// Minecraft source mappings - https://github.com/FabricMC/yarn
-	mappings( "net.fabricmc:yarn:${ project.extra[ "yarn_mappings" ] }:v2" )
+	// Minecraft source mappings
+	mappings( loom.officialMojangMappings() )
 
 	// Fabric Loader - https://github.com/FabricMC/fabric-loader
 	modImplementation( "net.fabricmc:fabric-loader:${ project.extra[ "loader_version" ] }" )

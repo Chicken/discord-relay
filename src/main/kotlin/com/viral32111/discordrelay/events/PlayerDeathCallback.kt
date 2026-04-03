@@ -2,8 +2,8 @@ package com.viral32111.discordrelay.events
 
 import net.fabricmc.fabric.api.event.Event
 import net.fabricmc.fabric.api.event.EventFactory
-import net.minecraft.entity.damage.DamageSource
-import net.minecraft.server.network.ServerPlayerEntity
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.server.level.ServerPlayer
 
 fun interface PlayerDeathCallback {
     companion object {
@@ -16,5 +16,5 @@ fun interface PlayerDeathCallback {
         }
     }
 
-    fun interact( player: ServerPlayerEntity, damageSource: DamageSource )
+    fun interact(player: ServerPlayer, damageSource: DamageSource)
 }
