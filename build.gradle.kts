@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-	id( "fabric-loom" )
+	id( "net.fabricmc.fabric-loom" )
 	kotlin( "jvm" ) version( System.getProperty( "kotlin_version" ) )
 	kotlin( "plugin.serialization" ) version( System.getProperty( "kotlin_version" ) )
 	id( "com.gradleup.shadow" ) version "9.3.2"
@@ -13,14 +13,8 @@ base {
 version = project.extra[ "mod_version" ] as String
 group = project.extra[ "maven_group" ] as String
 
-val shadowImpl by configurations.creating {
-	isCanBeConsumed = false
-	isCanBeResolved = true
-}
-
-configurations {
-	getByName( "implementation" ).extendsFrom( shadowImpl )
-}
+val shadowImpl: Configuration by configurations.creating
+configurations["implementation"].extendsFrom(shadowImpl)
 
 repositories {
 	maven {
@@ -34,17 +28,14 @@ dependencies {
 	// Minecraft
 	minecraft( "com.mojang:minecraft:${ project.extra[ "minecraft_version" ] }" )
 
-	// Minecraft source mappings
-	mappings( loom.officialMojangMappings() )
-
 	// Fabric Loader - https://github.com/FabricMC/fabric-loader
-	modImplementation( "net.fabricmc:fabric-loader:${ project.extra[ "loader_version" ] }" )
+	implementation( "net.fabricmc:fabric-loader:${ project.extra[ "loader_version" ] }" )
 
 	// Fabric API - https://github.com/FabricMC/fabric
-	modImplementation( "net.fabricmc.fabric-api:fabric-api:${ project.extra[ "fabric_version" ] }" )
+	implementation( "net.fabricmc.fabric-api:fabric-api:${ project.extra[ "fabric_version" ] }" )
 
 	// Kotlin support for Fabric - https://github.com/FabricMC/fabric-language-kotlin
-	modImplementation( "net.fabricmc:fabric-language-kotlin:${ project.extra[ "fabric_language_kotlin_version" ] }" )
+	implementation( "net.fabricmc:fabric-language-kotlin:${ project.extra[ "fabric_language_kotlin_version" ] }" )
 
 	// Kotlin JSON serialization (for config files)
 	implementation( "org.jetbrains.kotlinx:kotlinx-serialization-json:${ project.extra[ "kotlinx_serialization_json_version" ] }" )
@@ -60,7 +51,7 @@ dependencies {
 	}
 
 	// Vanish
-	modImplementation( "maven.modrinth:vanish:${ project.extra[ "vanish_version" ] }" )
+	implementation( "maven.modrinth:vanish:${ project.extra[ "vanish_version" ] }" )
 }
 
 tasks {
@@ -81,7 +72,7 @@ tasks {
 
 	shadowJar {
 		configurations = listOf( shadowImpl )
-		archiveClassifier.set( "dev-shadow" )
+		archiveClassifier.set( "" )
 		// Exclude slf4j
 		exclude( "org/slf4j/**" )
 		// Exclude Kotlin stdlib and runtime (provided by Fabric Language Kotlin)
@@ -95,12 +86,6 @@ tasks {
 		relocate( "okhttp3", "com.viral32111.discordrelay.shadow.okhttp3" )
 		relocate( "io.github", "com.viral32111.discordrelay.shadow.github" )
 		relocate( "okio", "com.viral32111.discordrelay.shadow.okio" )
-	}
-
-	remapJar {
-		input.set( shadowJar.flatMap { it.archiveFile } )
-		dependsOn( shadowJar )
-		archiveClassifier.set( "" )
 	}
 
 	jar {
