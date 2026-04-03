@@ -1,8 +1,7 @@
 package com.viral32111.discordrelay
 
 import com.viral32111.discordrelay.config.Configuration
-import com.viral32111.discordrelay.discord.API
-import com.viral32111.discordrelay.discord.data.*
+import com.viral32111.discordrelay.discord.DiscordBot
 import com.viral32111.discordrelay.events.PlayerCompleteAdvancementCallback
 import com.viral32111.discordrelay.events.PlayerDeathCallback
 import com.viral32111.discordrelay.events.PlayerJoinCallback
@@ -19,32 +18,18 @@ import me.drex.vanish.api.VanishAPI
 import me.drex.vanish.api.VanishEvents
 
 fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Configuration ) {
-	val relayWebhookIdentifier = configuration.discord.relay.webhook.identifier
-	val relayWebhookToken = configuration.discord.relay.webhook.token
-	val relayWebhookThread = configuration.discord.relay.webhook.threadId
-
 	val avatarUrl = configuration.thirdParty.avatarUrl
 	val hasVanish = FabricLoader.getInstance().isModLoaded("melius-vanish");
-
-	ServerLifecycleEvents.SERVER_STARTED.register { _ ->
-		DiscordRelay.LOGGER.debug( "Sending server online message..." )
-
-		coroutineScope.launch {
-			API.sendWebhookEmbed( relayWebhookIdentifier, relayWebhookToken, relayWebhookThread ) {
-				author = EmbedAuthor( "The server has started" )
-				color = 0x00FF00 // Green
-			}
-		}
-	}
 
 	ServerLifecycleEvents.SERVER_STOPPING.register { _ ->
 		DiscordRelay.LOGGER.debug( "Sending server offline message..." )
 
 		coroutineScope.launch {
-			API.sendWebhookEmbedWithoutWaiting( relayWebhookIdentifier, relayWebhookToken, relayWebhookThread ) {
-				author = EmbedAuthor( "The server has stopped" )
-				color = 0xFF0000 // Red
-			}
+			DiscordBot.sendEmbedMessage(
+				authorName = "The server has stopped",
+				color = 0xFF0000,
+				wait = false
+			)
 		}
 	}
 
@@ -53,11 +38,11 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 		DiscordRelay.LOGGER.debug( "Relaying chat message '${ message.content.string }' for player '${ player.name.string } (${ player.uuidAsString })...'" )
 
 		coroutineScope.launch {
-			API.sendWebhookText( relayWebhookIdentifier, relayWebhookToken, relayWebhookThread ) {
-				this.avatarUrl = avatarUrl.format( player.uuidAsString )
+			DiscordBot.sendTextMessage(
+				content = message.content.string,
+				avatarUrl = avatarUrl.format( player.uuidAsString ),
 				userName = player.displayName?.string ?: player.name.string
-				content = message.content.string
-			}
+			)
 		}
 	}
 
@@ -68,13 +53,11 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 		DiscordRelay.LOGGER.debug( "Relaying join message for player '${ player.name.string } (${ player.uuidAsString })...'" )
 
 		coroutineScope.launch {
-			API.sendWebhookEmbed( relayWebhookIdentifier, relayWebhookToken, relayWebhookThread ) {
-				author = EmbedAuthor(
-					name = "${ player.displayName?.string ?: player.name.string } joined",
-					iconUrl = playerAvatarUrl
-				)
-				color = 0xFFFFFF // White
-			}
+			DiscordBot.sendEmbedMessage(
+				authorName = "${ player.displayName?.string ?: player.name.string } joined",
+				authorIconUrl = playerAvatarUrl,
+				color = 0xFFFFFF
+			)
 		}
 	}
 
@@ -85,13 +68,11 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 		DiscordRelay.LOGGER.debug( "Relaying leave message for player '${ player.name.string } (${ player.uuidAsString })...'" )
 
 		coroutineScope.launch {
-			API.sendWebhookEmbed( relayWebhookIdentifier, relayWebhookToken, relayWebhookThread ) {
-				author = EmbedAuthor(
-					name = "${ player.displayName?.string ?: player.name.string } left",
-					iconUrl = playerAvatarUrl
-				)
-				color = 0xFFFFFF // White
-			}
+			DiscordBot.sendEmbedMessage(
+				authorName = "${ player.displayName?.string ?: player.name.string } left",
+				authorIconUrl = playerAvatarUrl,
+				color = 0xFFFFFF
+			)
 		}
 	}
 
@@ -100,23 +81,19 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 			val playerAvatarUrl = avatarUrl.format( player.uuidAsString )
 			if ( vanish ) {
 				coroutineScope.launch {
-					API.sendWebhookEmbed( relayWebhookIdentifier, relayWebhookToken, relayWebhookThread ) {
-						author = EmbedAuthor(
-							name = "${ player.displayName?.string ?: player.name.string } left",
-							iconUrl = playerAvatarUrl
-						)
-						color = 0xFFFFFF // White
-					}
+					DiscordBot.sendEmbedMessage(
+						authorName = "${ player.displayName?.string ?: player.name.string } left",
+						authorIconUrl = playerAvatarUrl,
+						color = 0xFFFFFF
+					)
 				}
 			} else {
 				coroutineScope.launch {
-					API.sendWebhookEmbed( relayWebhookIdentifier, relayWebhookToken, relayWebhookThread ) {
-						author = EmbedAuthor(
-							name = "${ player.displayName?.string ?: player.name.string } joined",
-							iconUrl = playerAvatarUrl
-						)
-						color = 0xFFFFFF // White
-					}
+					DiscordBot.sendEmbedMessage(
+						authorName = "${ player.displayName?.string ?: player.name.string } joined",
+						authorIconUrl = playerAvatarUrl,
+						color = 0xFFFFFF
+					)
 				}
 			}
 		}
@@ -130,13 +107,11 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 		DiscordRelay.LOGGER.debug( "Relaying death message '$deathMessage' for player '${ player.name.string } (${ player.uuidAsString })...'" )
 
 		coroutineScope.launch {
-			API.sendWebhookEmbed( relayWebhookIdentifier, relayWebhookToken, relayWebhookThread ) {
-				author = EmbedAuthor(
-					name = deathMessage,
-					iconUrl = playerAvatarUrl
-				)
-				color = 0xFFFFAA // Yellow-ish
-			}
+			DiscordBot.sendEmbedMessage(
+				authorName = deathMessage,
+				authorIconUrl = playerAvatarUrl,
+				color = 0xFFFFAA
+			)
 		}
 	}
 
@@ -153,15 +128,12 @@ fun registerCallbackListeners( coroutineScope: CoroutineScope, configuration: Co
 		DiscordRelay.LOGGER.debug( "Relaying advancement '$advancementTitle' completion message for player '${ player.name.string } (${ player.uuidAsString })...'" )
 
 		coroutineScope.launch {
-			API.sendWebhookEmbed( relayWebhookIdentifier, relayWebhookToken, relayWebhookThread ) {
-				author = EmbedAuthor(
-					name = "${ player.displayName?.string ?: player.name.string } $advancementText ${ advancementTitle ?: "Unknown" }",
-					iconUrl = playerAvatarUrl
-				)
-				if ( !advancementDescription.isNullOrBlank() ) description = advancementDescription
-				color = advancementColor
-			}
+			DiscordBot.sendEmbedMessage(
+				authorName = "${ player.displayName?.string ?: player.name.string } $advancementText ${ advancementTitle ?: "Unknown" }",
+				authorIconUrl = playerAvatarUrl,
+				description = if ( !advancementDescription.isNullOrBlank() ) advancementDescription else null,
+				color = advancementColor ?: 0xFFFFFF
+			)
 		}
 	}
 }
-

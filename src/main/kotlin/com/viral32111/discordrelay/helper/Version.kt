@@ -13,7 +13,7 @@ object Version {
 
 	fun java(): String = System.getProperty( "java.version" )
 
-	fun minecraft(): String = MinecraftVersion.CURRENT.id
+	fun minecraft(): String = MinecraftVersion.create().id()
 
 	fun discordRelay(): String = byModIdentifier( "discordrelay" )
 }

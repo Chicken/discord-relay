@@ -1,18 +1,15 @@
 package com.viral32111.discordrelay
 
 import com.viral32111.discordrelay.config.Configuration
-import com.viral32111.discordrelay.discord.API
-import com.viral32111.discordrelay.discord.Gateway
+import com.viral32111.discordrelay.discord.DiscordBot
 import com.viral32111.discordrelay.helper.Version
 import kotlinx.coroutines.*
-import kotlinx.serialization.encodeToString
 import net.fabricmc.api.DedicatedServerModInitializer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.loader.api.FabricLoader
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.nio.file.StandardOpenOption
-import java.util.Base64
 import kotlin.io.path.*
 
 @Suppress( "UNUSED" )
@@ -32,53 +29,23 @@ class DiscordRelay: DedicatedServerModInitializer {
 
 		configuration = loadConfigurationFile()
 
-		HTTP.initialize( configuration )
-		API.initialize( configuration )
-
 		if (
 			configuration.discord.application.token.isNotBlank()
 			&& configuration.discord.relay.webhook.token.isNotBlank()
 			&& configuration.discord.relay.webhook.identifier.isNotBlank()
-			) {
+		) {
 			registerCallbackListeners( coroutineScope, configuration )
 
 			ServerLifecycleEvents.SERVER_STARTED.register { server ->
-				val gateway = Gateway( configuration, server.playerManager )
-
 				coroutineScope.launch {
-					val gatewayUrl = API.getGateway().url
-					LOGGER.debug( "Discord Gateway URL: '$gatewayUrl'" )
-					gateway.open( gatewayUrl )
+					DiscordBot.initialize( configuration, server.playerManager )
+					DiscordBot.start()
 				}
+			}
 
-				val applicationId = String(Base64.getDecoder().decode(configuration.discord.application.token.split(".")[0]))
-
-				// Register slash commands
+			ServerLifecycleEvents.SERVER_STOPPING.register { _ ->
 				coroutineScope.launch {
-					API.registerSlashCommands(applicationId) {
-						command {
-							name = "whitelist"
-							description = "Whitelist yourself"
-							options {
-								stringOption {
-									name = "username"
-									description = "The username of the user you want to whitelist"
-									required = true
-								}
-							}
-						}
-						command {
-							name = "list"
-							description = "Get a list of the currently online players"
-						}
-					}
-				}
-
-				ServerLifecycleEvents.SERVER_STOPPING.register {
-					coroutineScope.launch {
-						LOGGER.debug( "Closing Discord Gateway connection..." )
-						gateway.close( WebSocketCloseCode.Normal, "Server stopping.", true )
-					}
+					DiscordBot.shutdown()
 				}
 			}
 		}

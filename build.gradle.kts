@@ -4,6 +4,7 @@ plugins {
 	id( "fabric-loom" )
 	kotlin( "jvm" ) version( System.getProperty( "kotlin_version" ) )
 	kotlin( "plugin.serialization" ) version( System.getProperty( "kotlin_version" ) )
+	id( "com.gradleup.shadow" ) version "9.3.2"
 }
 
 base {
@@ -12,34 +13,54 @@ base {
 version = project.extra[ "mod_version" ] as String
 group = project.extra[ "maven_group" ] as String
 
+val shadowImpl by configurations.creating {
+	isCanBeConsumed = false
+	isCanBeResolved = true
+}
+
+configurations {
+	getByName( "implementation" ).extendsFrom( shadowImpl )
+}
+
 repositories {
 	maven {
 		url = uri( "https://api.modrinth.com/maven" )
 	}
+	mavenCentral()
 }
 
 dependencies {
 
 	// Minecraft
-	minecraft( "com.mojang", "minecraft", project.extra[ "minecraft_version" ] as String )
+	minecraft( "com.mojang:minecraft:${ project.extra[ "minecraft_version" ] }" )
 
 	// Minecraft source mappings - https://github.com/FabricMC/yarn
-	mappings( "net.fabricmc", "yarn", project.extra[ "yarn_mappings" ] as String, null, "v2" )
+	mappings( "net.fabricmc:yarn:${ project.extra[ "yarn_mappings" ] }:v2" )
 
 	// Fabric Loader - https://github.com/FabricMC/fabric-loader
-	modImplementation( "net.fabricmc", "fabric-loader", project.extra[ "loader_version" ] as String )
+	modImplementation( "net.fabricmc:fabric-loader:${ project.extra[ "loader_version" ] }" )
 
 	// Fabric API - https://github.com/FabricMC/fabric
-	modImplementation( "net.fabricmc.fabric-api", "fabric-api", project.extra[ "fabric_version" ] as String )
+	modImplementation( "net.fabricmc.fabric-api:fabric-api:${ project.extra[ "fabric_version" ] }" )
 
 	// Kotlin support for Fabric - https://github.com/FabricMC/fabric-language-kotlin
-	modImplementation( "net.fabricmc", "fabric-language-kotlin", project.extra[ "fabric_language_kotlin_version" ] as String )
+	modImplementation( "net.fabricmc:fabric-language-kotlin:${ project.extra[ "fabric_language_kotlin_version" ] }" )
 
-	// Kotlin JSON serialization
-	implementation( "org.jetbrains.kotlinx", "kotlinx-serialization-json", project.extra[ "kotlinx_serialization_json_version" ] as String )
+	// Kotlin JSON serialization (for config files)
+	implementation( "org.jetbrains.kotlinx:kotlinx-serialization-json:${ project.extra[ "kotlinx_serialization_json_version" ] }" )
+
+	// Kord - Discord library for Kotlin (shaded into mod jar)
+	shadowImpl( "dev.kord:kord-core:${ project.extra[ "kord_version" ] }" ) {
+		// Exclude Kotlin stdlib and coroutines - provided by Fabric Language Kotlin
+		exclude( group = "org.jetbrains.kotlin" )
+		exclude( group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core" )
+		exclude( group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm" )
+		exclude( group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-jdk8" )
+		// Keep kotlinx-serialization as Kord needs it internally and our version may differ
+	}
 
 	// Vanish
-	modImplementation( "maven.modrinth", "vanish", project.extra[ "vanish_version" ] as String )
+	modImplementation( "maven.modrinth:vanish:${ project.extra[ "vanish_version" ] }" )
 }
 
 tasks {
@@ -56,7 +77,30 @@ tasks {
 		 compilerOptions {
 		 	jvmTarget.set(JvmTarget.fromTarget(project.extra[ "java_version" ] as String))
 		 }
+	}
 
+	shadowJar {
+		configurations = listOf( shadowImpl )
+		archiveClassifier.set( "dev-shadow" )
+		// Exclude slf4j
+		exclude( "org/slf4j/**" )
+		// Exclude Kotlin stdlib and runtime (provided by Fabric Language Kotlin)
+		exclude( "kotlin/**" )
+		exclude( "META-INF/kotlin-stdlib*" )
+		exclude( "META-INF/proguard/**" )
+		// Relocate shaded libraries to avoid conflicts with other mods
+		relocate( "dev.kord", "com.viral32111.discordrelay.shadow.kord" )
+		relocate( "io.ktor", "com.viral32111.discordrelay.shadow.ktor" )
+		//relocate( "kotlinx", "com.viral32111.discordrelay.shadow.kotlinx" )
+		relocate( "okhttp3", "com.viral32111.discordrelay.shadow.okhttp3" )
+		relocate( "io.github", "com.viral32111.discordrelay.shadow.github" )
+		relocate( "okio", "com.viral32111.discordrelay.shadow.okio" )
+	}
+
+	remapJar {
+		input.set( shadowJar.flatMap { it.archiveFile } )
+		dependsOn( shadowJar )
+		archiveClassifier.set( "" )
 	}
 
 	jar {
